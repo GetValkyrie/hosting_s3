@@ -9,17 +9,17 @@
  * Implements hook_hosting_site_context_options().
  */
 function hosting_s3_hosting_site_context_options(&$task) {
-  if (isset($task->ref->access_key_id) && !empty($task->ref->access_key_id)) {
-    $task->context_options['access_key_id'] = $task->ref->access_key_id;
+  if (isset($task->ref->s3_access_key_id) && !empty($task->ref->s3_access_key_id)) {
+    $task->context_options['s3_access_key_id'] = $task->ref->s3_access_key_id;
   }
   else {
-    $task->context_options['access_key_id'] = 'null';
+    $task->context_options['s3_access_key_id'] = 'null';
   }
-  if (isset($task->ref->secret_access_key) && !empty($task->ref->secret_access_key)) {
-    $task->context_options['secret_access_key'] = $task->ref->secret_access_key;
+  if (isset($task->ref->s3_secret_access_key) && !empty($task->ref->s3_secret_access_key)) {
+    $task->context_options['s3_secret_access_key'] = $task->ref->s3_secret_access_key;
   }
   else {
-    $task->context_options['secret_access_key'] = 'null';
+    $task->context_options['s3_secret_access_key'] = 'null';
   }
 }
 
@@ -28,11 +28,11 @@ function hosting_s3_hosting_site_context_options(&$task) {
  */
 function hosting_s3_drush_context_import($context, &$node) {
   if ($context->type == 'site') {
-    if (isset($context->access_key_id) && !empty($context->access_key_id)) {
-      $node->access_key_id = $context->access_key_id;
+    if (isset($context->s3_access_key_id) && !empty($context->s3_access_key_id)) {
+      $node->s3_access_key_id = $context->s3_access_key_id;
     }
-    if (isset($context->secret_access_key) && !empty($context->secret_access_key)) {
-      $node->secret_access_key = $context->secret_access_key;
+    if (isset($context->s3_secret_access_key) && !empty($context->s3_secret_access_key)) {
+      $node->s3_secret_access_key = $context->s3_secret_access_key;
     }
   }
 }

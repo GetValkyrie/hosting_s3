@@ -18,16 +18,16 @@ function hosting_s3_form_alter(&$form, $form_state, $form_id) {
 
 # TODO: Add checkbox to inherit from client (default to on).
 
-    $form['s3']['access_key_id'] = array(
+    $form['s3']['s3_access_key_id'] = array(
       '#type' => 'textfield',
       '#title' => t('Access key ID'),
-      '#default_value' => isset($form['#node']->access_key_id) ? $form['#node']->access_key_id : '',
+      '#default_value' => isset($form['#node']->s3_access_key_id) ? $form['#node']->s3_access_key_id : '',
     );
 
-    $form['s3']['secret_access_key'] = array(
+    $form['s3']['s3_secret_access_key'] = array(
       '#type' => 'textfield',
       '#title' => t('Secret access key'),
-      '#default_value' => isset($form['#node']->secret_access_key) ? $form['#node']->secret_access_key : '',
+      '#default_value' => isset($form['#node']->s3_secret_access_key) ? $form['#node']->s3_secret_access_key : '',
     );
 
     return $form;
@@ -38,12 +38,12 @@ function hosting_s3_form_alter(&$form, $form_state, $form_id) {
  * Implements hook_node_insert().
  */
 function hosting_s3_node_insert($node) {
-  if ($node->type == 'site' && !empty($node->access_key_id) && !empty($node->secret_access_key)) {
+  if ($node->type == 'site' && !empty($node->s3_access_key_id) && !empty($node->s3_secret_access_key)) {
     $id = db_insert('hosting_s3_sites')->fields(array(
       'vid' => $node->vid,
       'nid' => $node->nid,
-      'access_key_id' => $node->access_key_id,
-      'secret_access_key' => $node->secret_access_key,
+      's3_access_key_id' => $node->s3_access_key_id,
+      's3_secret_access_key' => $node->s3_secret_access_key,
     ))
     ->execute();
   }
@@ -53,14 +53,14 @@ function hosting_s3_node_insert($node) {
  * Implements hook_node_update().
  */
 function hosting_s3_node_update($node) {
-  if (FALSE === db_query("SELECT access_key_id FROM {hosting_s3_sites} WHERE vid = :vid", array(':vid' => $node->vid))->fetchField()) {
+  if (FALSE === db_query("SELECT s3_access_key_id FROM {hosting_s3_sites} WHERE vid = :vid", array(':vid' => $node->vid))->fetchField()) {
     hosting_s3_node_insert($node);
   }
   else {
     db_update('hosting_s3_sites')
       ->fields(array(
-        'access_key_id' => $node->access_key_id,
-        'secret_access_key' => $node->secret_access_key,
+        's3_access_key_id' => $node->s3_access_key_id,
+        's3_secret_access_key' => $node->s3_secret_access_key,
       ))
       ->condition('vid', $node->vid)
       ->execute();
@@ -74,8 +74,8 @@ function hosting_s3_node_load($nodes, $types) {
   foreach ($nodes as $nid => &$node) {
     if ($node->type == 'site') {
       // array instead
-      $nodes[$nid]->access_key_id = db_query("SELECT access_key_id FROM {hosting_s3_sites} WHERE vid = :vid", array(':vid' => $node->vid))->fetchField();;
-      $nodes[$nid]->secret_access_key = db_query("SELECT secret_access_key FROM {hosting_s3_sites} WHERE vid = :vid", array(':vid' => $node->vid))->fetchField();;
+      $nodes[$nid]->s3_access_key_id = db_query("SELECT s3_access_key_id FROM {hosting_s3_sites} WHERE vid = :vid", array(':vid' => $node->vid))->fetchField();;
+      $nodes[$nid]->s3_secret_access_key = db_query("SELECT s3_secret_access_key FROM {hosting_s3_sites} WHERE vid = :vid", array(':vid' => $node->vid))->fetchField();;
     }
   }
 }

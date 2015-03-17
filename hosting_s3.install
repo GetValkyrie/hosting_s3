@@ -16,12 +16,12 @@ function hosting_s3_schema() {
         'not null' => TRUE,
         'description' => 'Machine-name of the client.',
       ),
-      'access_key_id' => array(
+      's3_access_key_id' => array(
         'type' => 'varchar',
         'length' => 255,
         'default' => '',
       ),
-      'secret_access_key' => array(
+      's3_secret_access_key' => array(
         'type' => 'varchar',
         'length' => 255,
         'default' => '',
@@ -45,12 +45,12 @@ function hosting_s3_schema() {
         'not null' => TRUE,
         'default' => 0,
       ),
-      'access_key_id' => array(
+      's3_access_key_id' => array(
         'type' => 'varchar',
         'length' => 255,
         'default' => '',
       ),
-      'secret_access_key' => array(
+      's3_secret_access_key' => array(
         'type' => 'varchar',
         'length' => 255,
         'default' => '',

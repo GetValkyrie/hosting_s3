@@ -74,8 +74,8 @@ function drush_provision_s3_post_provision_delete() {
 function drush_provision_s3_pre_provision_verify() {
   if (_provision_s3_enabled()) {
     d()->service('s3')->pre_verify();
-    drush_log('S3 access key received from the frontend (d()->access_key_id): ' . d()->access_key_id);
-    drush_log('S3 secret access key received from the frontend (d()->secret_access_key): ' . d()->secret_access_key);
+    drush_log('S3 access key received from the frontend (d()->s3_access_key_id): ' . d()->s3_access_key_id);
+    drush_log('S3 secret access key received from the frontend (d()->s3_secret_access_key): ' . d()->s3_secret_access_key);
   }
 }
 function drush_provision_s3_post_provision_verify() {

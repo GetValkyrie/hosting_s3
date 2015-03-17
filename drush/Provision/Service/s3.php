@@ -10,8 +10,8 @@ class Provision_Service_s3 extends Provision_Service {
    * Add the needed properties to the site context.
    */
   static function subscribe_site($context) {
-    $context->setProperty('access_key_id');
-    $context->setProperty('secret_access_key');
+    $context->setProperty('s3_access_key_id');
+    $context->setProperty('s3_secret_access_key');
   }
 
   /**
