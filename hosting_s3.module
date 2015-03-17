@@ -1,0 +1,99 @@
+<?php
+/**
+ * @file
+ * Provision and manage S3 buckets for hosted Drupal sites.
+ */
+
+/**
+ * Implements hook_form_alter().
+ */
+function hosting_s3_form_alter(&$form, $form_state, $form_id) {
+  if ($form_id == 'site_node_form') {
+
+    $form['s3'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('S3 credentials'),
+      '#description' => t('Credentials for access to create and manage an S3 bucket for this site.'),
+    );
+
+# TODO: Add checkbox to inherit from client (default to on).
+
+    $form['s3']['access_key_id'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Access key ID'),
+      '#default_value' => isset($form['#node']->access_key_id) ? $form['#node']->access_key_id : '',
+    );
+
+    $form['s3']['secret_access_key'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Secret access key'),
+      '#default_value' => isset($form['#node']->secret_access_key) ? $form['#node']->secret_access_key : '',
+    );
+
+    return $form;
+  }
+}
+
+/**
+ * Implements hook_node_insert().
+ */
+function hosting_s3_node_insert($node) {
+  if ($node->type == 'site' && !empty($node->access_key_id) && !empty($node->secret_access_key)) {
+    $id = db_insert('hosting_s3_sites')->fields(array(
+      'vid' => $node->vid,
+      'nid' => $node->nid,
+      'access_key_id' => $node->access_key_id,
+      'secret_access_key' => $node->secret_access_key,
+    ))
+    ->execute();
+  }
+}
+
+/**
+ * Implements hook_node_update().
+ */
+function hosting_s3_node_update($node) {
+  if (FALSE === db_query("SELECT access_key_id FROM {hosting_s3_sites} WHERE vid = :vid", array(':vid' => $node->vid))->fetchField()) {
+    hosting_s3_node_insert($node);
+  }
+  else {
+    db_update('hosting_s3_sites')
+      ->fields(array(
+        'access_key_id' => $node->access_key_id,
+        'secret_access_key' => $node->secret_access_key,
+      ))
+      ->condition('vid', $node->vid)
+      ->execute();
+  }
+}
+
+/**
+ * Implements hook_node_load().
+ */
+function hosting_s3_node_load($nodes, $types) {
+  foreach ($nodes as $nid => &$node) {
+    if ($node->type == 'site') {
+      // array instead
+      $nodes[$nid]->access_key_id = db_query("SELECT access_key_id FROM {hosting_s3_sites} WHERE vid = :vid", array(':vid' => $node->vid))->fetchField();;
+      $nodes[$nid]->secret_access_key = db_query("SELECT secret_access_key FROM {hosting_s3_sites} WHERE vid = :vid", array(':vid' => $node->vid))->fetchField();;
+    }
+  }
+}
+
+/**
+ * Implements hook_node_delete().
+ */
+function hosting_s3_node_delete($node) {
+  db_delete('hosting_s3_sites')
+    ->condition('nid', $node->nid)
+    ->execute();
+}
+
+/**
+ * Implements hook_revision_revision().
+ */
+function hosting_s3_node_revision_delete($node) {
+  db_delete('hosting_s3_sites')
+    ->condition('vid', $node->vid)
+    ->execute();
+}
