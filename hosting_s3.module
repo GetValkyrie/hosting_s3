@@ -15,18 +15,28 @@ function hosting_s3_form_alter(&$form, $form_state, $form_id) {
   if ($form_id == 'site_node_form') {
     $existing = (bool) !is_null($form['nid']['#value']);
 
+    if ($existing) {
+      $form['info']['bucket_name'] = array(
+        '#type' => 'item',
+        '#disabled' => $existing,
+        '#title' => t('Bucket name'),
+        '#markup' => !empty($form['#node']->s3_bucket_name) ? $form['#node']->s3_bucket_name : 'none',
+      );
+    }
+
     $form['s3'] = array(
       '#type' => 'fieldset',
       '#title' => t('S3 credentials'),
       '#description' => t('Credentials for access to create and manage an S3 bucket for this site.'),
     );
 
-# TODO: Add checkbox to inherit from client (default to on).
+# TODO: Add checkbox to inherit from client (default to on?).
 
     $form['s3']['s3_access_key_id'] = array(
       '#type' => 'textfield',
       '#disabled' => $existing,
       '#title' => t('Access key ID'),
+      '#attributes' => array('autocomplete' => 'off'),
       '#default_value' => isset($form['#node']->s3_access_key_id) ? $form['#node']->s3_access_key_id : '',
     );
 
@@ -34,6 +44,7 @@ function hosting_s3_form_alter(&$form, $form_state, $form_id) {
       '#type' => 'password',
       '#disabled' => $existing,
       '#title' => t('Secret access key'),
+      '#attributes' => array('autocomplete' => 'off'),
       '#default_value' => isset($form['#node']->s3_secret_access_key) ? $form['#node']->s3_secret_access_key : '',
     );
 
@@ -64,31 +75,77 @@ function hosting_s3_validate_credentials($form, &$form_state){
     form_set_error('s3_access_key_id', 'Both S3 credentials are required. `Access key ID` is blank.');
   }
   else {
-    $credentials = new Credentials($access_key_id, $secret_access_key);
-
-    // Instantiate an S3 client with our AWS credentials
-    $client = S3Client::factory(array(
-      'credentials' => $credentials
-    ));
-
-    try {
-      // This only validates that the keys themselves are valid, and not that
-      // they grant sufficient access to create/sync/delete buckets.
-      $result = $client->listBuckets();
-    } catch (Exception $e) {
-      $code = $e->getExceptionCode();
-      $message= $e->getMessage();
-      $error = array();
-      $error[] = t('There was an error validating your S3 credentials.');
-      $error[] = t('Error code: @code', array('@code' => $code));
-      $error[] = t('Error message: @message', array('@message' => $message));
-      form_set_error('s3', implode('</li><li>', $error));
+    $client = _hosting_s3_client_factory($access_key_id, $secret_access_key);
+    if (_hosting_s3_validate_client($client)) {
+      $url = $form_state['values']['title'];
+      if ($bucket_name = _hosting_s3_suggest_bucket_name($client, $url)) {
+        $form_state['values']['s3_bucket_name'] = $bucket_name;
+        drupal_set_message(t('S3 bucket name set to %bucket.', array('%bucket' => $bucket_name)));
+      }
     }
-    if (isset($result)) {
-      drupal_set_message('S3 credentials validated.');
+  }
+}
+
+/**
+ * Validate a client's credentials.
+ */
+function _hosting_s3_validate_client($client) {
+  try {
+    // This only validates that the keys themselves are valid, and not that
+    // they grant sufficient access to create/sync/delete buckets.
+    $result = $client->listBuckets();
+  } catch (Exception $e) {
+    _hosting_s3_handle_exception($e);
+    return FALSE;
+  }
+  if (isset($result)) {
+    drupal_set_message(t('S3 credentials validated.'));
+    return TRUE;
+  }
+  return FALSE;
+}
+
+/**
+ * Instantiate and return an S3 client from a set of AWS credentials.
+ */
+function _hosting_s3_client_factory($access_key_id, $secret_access_key) {
+  $credentials = new Credentials($access_key_id, $secret_access_key);
+
+  return S3Client::factory(array('credentials' => $credentials));
+}
+
+/**
+ * Suggest an available, unique bucket name based on a site's URL.
+ */
+function _hosting_s3_suggest_bucket_name($client, $url) {
+  $suggest_base = str_replace('.', '-', gethostname() . '-' . $url);
+
+  if (!$client->doesBucketExist($suggest_base)) {
+    return $suggest_base;
+  }
+
+  for ($i = 0; $i < 100; $i++) {
+    $option = $suggest_base . $i;
+    if (!$client->doesBucketExist($option)) {
+      return $option;
     }
   }
 
+  form_set_error('s3', dt("Could not find a free bucket name after 100 attempts"));
+  return false;
+}
+
+/**
+ * Helper function to display errors from AWS.
+ */
+function _hosting_s3_handle_exception($exception) {
+  $code = $exception->getExceptionCode();
+  $message= $exception->getMessage();
+  $error = array();
+  $error[] = t('There was an error validating your S3 credentials.');
+  $error[] = t('Error code: @code', array('@code' => $code));
+  $error[] = t('Error message: @message', array('@message' => $message));
+  form_set_error('s3', implode('</li><li>', $error));
 }
 
 /**
@@ -101,6 +158,7 @@ function hosting_s3_node_insert($node) {
       'nid' => $node->nid,
       's3_access_key_id' => $node->s3_access_key_id,
       's3_secret_access_key' => $node->s3_secret_access_key,
+      's3_bucket_name' => $node->s3_bucket_name,
     ))
     ->execute();
   }
@@ -118,6 +176,7 @@ function hosting_s3_node_update($node) {
       ->fields(array(
         's3_access_key_id' => $node->s3_access_key_id,
         's3_secret_access_key' => $node->s3_secret_access_key,
+        's3_bucket_name' => $node->s3_bucket_name,
       ))
       ->condition('vid', $node->vid)
       ->execute();
@@ -130,9 +189,10 @@ function hosting_s3_node_update($node) {
 function hosting_s3_node_load($nodes, $types) {
   foreach ($nodes as $nid => &$node) {
     if ($node->type == 'site') {
-      // array instead
-      $nodes[$nid]->s3_access_key_id = db_query("SELECT s3_access_key_id FROM {hosting_s3_sites} WHERE vid = :vid", array(':vid' => $node->vid))->fetchField();;
-      $nodes[$nid]->s3_secret_access_key = db_query("SELECT s3_secret_access_key FROM {hosting_s3_sites} WHERE vid = :vid", array(':vid' => $node->vid))->fetchField();;
+      $fields = db_query("SELECT s3_access_key_id, s3_secret_access_key, s3_bucket_name FROM {hosting_s3_sites} WHERE vid = :vid", array(':vid' => $node->vid))->fetchAssoc();
+      foreach ($fields as $key => $value) {
+        $nodes[$nid]->$key = $value;
+      }
     }
   }
 }

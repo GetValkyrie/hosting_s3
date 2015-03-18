@@ -45,7 +45,9 @@ function _provision_s3_enabled() {
     isset(d()->s3_access_key_id) &&     // Both credentials need to be set
     !is_null(d()->s3_access_key_id) &&
     isset(d()->s3_secret_access_key) &&
-    !is_null(d()->s3_secret_access_key)
+    !is_null(d()->s3_secret_access_key) &&
+    isset(d()->s3_bucket_name) &&       // Can't do much without a bucket name...
+    !is_null(d()->s3_bucket_name)
   );
 }
 

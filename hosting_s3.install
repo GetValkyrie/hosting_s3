@@ -33,7 +33,7 @@ function hosting_s3_schema() {
 
   $schema['hosting_s3_sites'] = array(
     'fields' => array(
-#TODO: why 'vid' here?
+#TODO: do we want to revision bucket credentials?
       'vid' => array(
         'type' => 'int',
         'not null' => TRUE,
@@ -55,6 +55,11 @@ function hosting_s3_schema() {
         'length' => 255,
         'default' => '',
       ),
+      's3_bucket_name' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'default' => '',
+      )
     ),
     'indexes' => array(
       'vid' => array('vid'),
