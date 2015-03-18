@@ -13,6 +13,7 @@ use Aws\Common\Credentials\Credentials;
  */
 function hosting_s3_form_alter(&$form, $form_state, $form_id) {
   if ($form_id == 'site_node_form') {
+    $existing = (bool) !is_null($form['nid']['#value']);
 
     $form['s3'] = array(
       '#type' => 'fieldset',
@@ -24,12 +25,14 @@ function hosting_s3_form_alter(&$form, $form_state, $form_id) {
 
     $form['s3']['s3_access_key_id'] = array(
       '#type' => 'textfield',
+      '#disabled' => $existing,
       '#title' => t('Access key ID'),
       '#default_value' => isset($form['#node']->s3_access_key_id) ? $form['#node']->s3_access_key_id : '',
     );
 
     $form['s3']['s3_secret_access_key'] = array(
-      '#type' => 'textfield',
+      '#type' => 'password',
+      '#disabled' => $existing,
       '#title' => t('Secret access key'),
       '#default_value' => isset($form['#node']->s3_secret_access_key) ? $form['#node']->s3_secret_access_key : '',
     );
