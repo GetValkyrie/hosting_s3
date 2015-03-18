@@ -79,8 +79,13 @@ function hosting_s3_validate_credentials($form, &$form_state){
     if (_hosting_s3_validate_client($client)) {
       $url = $form_state['values']['title'];
       if ($bucket_name = _hosting_s3_suggest_bucket_name($client, $url)) {
-        $form_state['values']['s3_bucket_name'] = $bucket_name;
-        drupal_set_message(t('S3 bucket name set to %bucket.', array('%bucket' => $bucket_name)));
+        if ($client->isValidBucketName($bucket_name)) {
+          $form_state['values']['s3_bucket_name'] = $bucket_name;
+          drupal_set_message(t('S3 bucket name set to %bucket.', array('%bucket' => $bucket_name)));
+        }
+        else {
+          form_set_error('title', t('Suggested bucket name (%bucket) failed S3 validation.', array('%bucket' => $bucket_name)));
+        }
       }
     }
   }
