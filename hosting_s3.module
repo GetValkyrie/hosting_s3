@@ -4,6 +4,10 @@
  * Provision and manage S3 buckets for hosted Drupal sites.
  */
 
+require dirname(__FILE__) . '/vendor/autoload.php';
+use Aws\S3\S3Client;
+use Aws\Common\Credentials\Credentials;
+
 /**
  * Implements hook_form_alter().
  */
@@ -30,8 +34,58 @@ function hosting_s3_form_alter(&$form, $form_state, $form_id) {
       '#default_value' => isset($form['#node']->s3_secret_access_key) ? $form['#node']->s3_secret_access_key : '',
     );
 
+    $form['#validate'][] = 'hosting_s3_validate_credentials';
+
     return $form;
   }
+}
+
+/**
+ * Validation callback to ensure S3 credentials are valid.
+ *
+ * See: hosting_s3_form_alter().
+ */
+function hosting_s3_validate_credentials($form, &$form_state){
+  // Both credential fields must be filled to proceed.
+  $access_key_id = $form_state['values']['s3_access_key_id'];
+  $secret_access_key = $form_state['values']['s3_secret_access_key'];
+
+  if (empty($access_key_id) && empty($secret_access_key)) {
+    // No credentials supplied, nothing more to do here.
+    return;
+  }
+  elseif (!empty($access_key_id) && empty($secret_access_key)) {
+    form_set_error('s3_secret_access_key', 'Both S3 credentials are required. `Secret access key` is blank.');
+  }
+  elseif (empty($access_key_id) && !empty($secret_access_key)) {
+    form_set_error('s3_access_key_id', 'Both S3 credentials are required. `Access key ID` is blank.');
+  }
+  else {
+    $credentials = new Credentials($access_key_id, $secret_access_key);
+
+    // Instantiate an S3 client with our AWS credentials
+    $client = S3Client::factory(array(
+      'credentials' => $credentials
+    ));
+
+    try {
+      // This only validates that the keys themselves are valid, and not that
+      // they grant sufficient access to create/sync/delete buckets.
+      $result = $client->listBuckets();
+    } catch (Exception $e) {
+      $code = $e->getExceptionCode();
+      $message= $e->getMessage();
+      $error = array();
+      $error[] = t('There was an error validating your S3 credentials.');
+      $error[] = t('Error code: @code', array('@code' => $code));
+      $error[] = t('Error message: @message', array('@message' => $message));
+      form_set_error('s3', implode('</li><li>', $error));
+    }
+    if (isset($result)) {
+      drupal_set_message('S3 credentials validated.');
+    }
+  }
+
 }
 
 /**
