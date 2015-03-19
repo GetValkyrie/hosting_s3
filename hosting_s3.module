@@ -13,45 +13,43 @@ use Aws\Common\Credentials\Credentials;
  */
 function hosting_s3_form_alter(&$form, $form_state, $form_id) {
   if ($form_id == 'site_node_form') {
-    $existing = (bool) !is_null($form['nid']['#value']);
-
-    if ($existing) {
+    $new_site = (bool) is_null($form['nid']['#value']);
+    $read_only = !$new_site;
+    
+    if (!$new_site) {
       $form['info']['bucket_name'] = array(
         '#type' => 'item',
-        '#disabled' => $existing,
+        '#disabled' => TRUE,
         '#title' => t('Bucket name'),
         '#markup' => !empty($form['#node']->s3_bucket_name) ? $form['#node']->s3_bucket_name : 'none',
       );
     }
-
     $form['s3'] = array(
       '#type' => 'fieldset',
       '#title' => t('S3 credentials'),
       '#description' => t('Credentials for access to create and manage an S3 bucket for this site.'),
     );
-
-# TODO: Add checkbox to inherit from client (default to on?).
-
     $form['s3']['s3_access_key_id'] = array(
       '#type' => 'textfield',
-      '#disabled' => $existing,
+      '#disabled' => $read_only,
       '#title' => t('Access key ID'),
       '#attributes' => array('autocomplete' => 'off'),
       '#default_value' => isset($form['#node']->s3_access_key_id) ? $form['#node']->s3_access_key_id : '',
     );
-
     $form['s3']['s3_secret_access_key'] = array(
       '#type' => 'password',
-      '#disabled' => $existing,
+      '#disabled' => $read_only,
       '#title' => t('Secret access key'),
       '#attributes' => array('autocomplete' => 'off'),
       '#default_value' => isset($form['#node']->s3_secret_access_key) ? $form['#node']->s3_secret_access_key : '',
     );
 
     $form['#validate'][] = 'hosting_s3_validate_credentials';
+    $form['#validate'][] = 'hosting_s3_validate_bucket_name';
 
     return $form;
   }
+
 }
 
 /**
@@ -59,14 +57,13 @@ function hosting_s3_form_alter(&$form, $form_state, $form_id) {
  *
  * See: hosting_s3_form_alter().
  */
-function hosting_s3_validate_credentials($form, &$form_state){
+function hosting_s3_validate_credentials($form, &$form_state) {
   // Both credential fields must be filled to proceed.
   $access_key_id = $form_state['values']['s3_access_key_id'];
   $secret_access_key = $form_state['values']['s3_secret_access_key'];
 
   if (empty($access_key_id) && empty($secret_access_key)) {
-    // No credentials supplied, nothing more to do here.
-    return;
+    return;  // No credentials supplied, nothing more to do here.
   }
   elseif (!empty($access_key_id) && empty($secret_access_key)) {
     form_set_error('s3_secret_access_key', 'Both S3 credentials are required. `Secret access key` is blank.');
@@ -76,25 +73,35 @@ function hosting_s3_validate_credentials($form, &$form_state){
   }
   else {
     $client = _hosting_s3_client_factory($access_key_id, $secret_access_key);
-    if (_hosting_s3_validate_client($client)) {
-      $url = $form_state['values']['title'];
-      if ($bucket_name = _hosting_s3_suggest_bucket_name($client, $url)) {
-        if ($client->isValidBucketName($bucket_name)) {
-          $form_state['values']['s3_bucket_name'] = $bucket_name;
-          drupal_set_message(t('S3 bucket name set to %bucket.', array('%bucket' => $bucket_name)));
-        }
-        else {
-          form_set_error('title', t('Suggested bucket name (%bucket) failed S3 validation.', array('%bucket' => $bucket_name)));
-        }
-      }
+    return _hosting_s3_validate_credentials($client);
+  }
+}
+
+/**
+ * Validation callback to ensure generated bucket name is valid for S3.
+ *
+ * See: hosting_s3_form_alter().
+ */
+function hosting_s3_validate_bucket_name($form, &$form_state){
+  $access_key_id = $form_state['values']['s3_access_key_id'];
+  $secret_access_key = $form_state['values']['s3_secret_access_key'];
+  $client = _hosting_s3_client_factory($access_key_id, $secret_access_key);
+  $url = $form_state['values']['title'];
+  if ($bucket_name = _hosting_s3_suggest_bucket_name($client, $url)) {
+    if ($client->isValidBucketName($bucket_name)) {
+      $form_state['values']['s3_bucket_name'] = $bucket_name;
+      drupal_set_message(t('S3 bucket name set to %bucket.', array('%bucket' => $bucket_name)));
+    }
+    else {
+      form_set_error('title', t('Suggested bucket name (%bucket) failed S3 validation.', array('%bucket' => $bucket_name)));
     }
   }
 }
 
 /**
- * Validate a client's credentials.
+ * Validate S3 credentials.
  */
-function _hosting_s3_validate_client($client) {
+function _hosting_s3_validate_credentials($client) {
   try {
     // This only validates that the keys themselves are valid, and not that
     // they grant sufficient access to create/sync/delete buckets.
@@ -136,7 +143,7 @@ function _hosting_s3_suggest_bucket_name($client, $url) {
     }
   }
 
-  form_set_error('s3', dt("Could not find a free bucket name after 100 attempts"));
+  form_set_error('s3', t("Could not find a free bucket name after 100 attempts"));
   return false;
 }
 
