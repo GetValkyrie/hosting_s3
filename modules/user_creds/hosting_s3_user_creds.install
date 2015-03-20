@@ -1,0 +1,34 @@
+<?php
+/**
+ * @file
+ * Install, update and uninstall for the hosting s3 user creds module.
+ */
+
+/**
+ * Implementation of hook_schema().
+ */
+function hosting_s3_user_creds_schema() {
+  $schema['hosting_s3_users'] = array(
+    'fields' => array(
+      'uid' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'description' => 'User ID',
+      ),
+      's3_access_key_id' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'default' => '',
+      ),
+      's3_secret_access_key' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'default' => '',
+      ),
+    ),
+    'primary key' => array('uid'),
+    'unique keys' => array('uid_unq' => array('uid')),
+  );
+
+  return $schema;
+}

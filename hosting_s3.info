@@ -1,5 +1,5 @@
 name = S3 Aegir Integration
 description = Allows Aegir to provision S3 buckets for hosted sites.
-package = Hosting
+package = Hosting AWS
 core = 7.x
 dependencies[] = hosting

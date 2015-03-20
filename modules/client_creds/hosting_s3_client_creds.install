@@ -1,0 +1,35 @@
+<?php
+/**
+ * @file
+ * Install, update and uninstall for the hosting s3 client creds module.
+ */
+
+/**
+ * Implementation of hook_schema().
+ */
+function hosting_s3_client_creds_schema() {
+  $schema['hosting_s3_clients'] = array(
+    'fields' => array(
+      'client' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'description' => 'Machine-name of the client.',
+      ),
+      's3_access_key_id' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'default' => '',
+      ),
+      's3_secret_access_key' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'default' => '',
+      ),
+    ),
+    'primary key' => array('client'),
+    'unique keys' => array('client_unq' => array('client')),
+  );
+
+  return $schema;
+}

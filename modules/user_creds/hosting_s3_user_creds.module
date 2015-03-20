@@ -1,0 +1,149 @@
+<?php
+/**
+ * @file
+ * Allow site S3 credentials to be inherited from the user account.
+ */
+
+/**
+ * Implements hook_form_alter().
+ */
+function hosting_s3_user_creds_form_alter(&$form, $form_state, $form_id) {
+  if ($form_id == 'site_node_form') {
+    $new_site = (bool) is_null($form['nid']['#value']);
+    if ($new_site) {
+      // We specify each element separately so as not to overwrite existing entries.
+      $form['s3']['inherit_creds']['#type'] = 'radios';
+      $form['s3']['inherit_creds']['#title'] = t('Source for S3 credentials.');
+      $form['s3']['inherit_creds']['#default_value'] = 'none';
+      $form['s3']['inherit_creds']['#options']['none'] = 'Use the credentials above';
+      $form['s3']['inherit_creds']['#options']['user'] = 'Use credentials from your user account';
+      $form['s3']['s3_access_key_id']['#disabled'] = TRUE;
+      $form['s3']['s3_access_key_id']['#states']['enabled'][':input[name="inherit_creds"]'] = array(
+        'value' => 'none',
+      );
+      $form['s3']['s3_secret_access_key']['#disabled'] = TRUE;
+      $form['s3']['s3_secret_access_key']['#states']['enabled'][':input[name="inherit_creds"]'] = array(
+        'value' => 'none',
+      );
+      // Run our validate hook first, so we can populate the inherited values,
+      // or throw an error, if they aren't set.
+      $position = array_search('hosting_s3_validate_credentials', $form['#validate']);
+      $form['#validate'] = array_slice($form['#validate'], 0, $position, true) +
+        array('user_creds' => 'hosting_s3_validate_inherit_user_credentials') +
+        array_slice($form['#validate'], $position, count($form['#validate'])-$position, true);
+    }
+  }
+  elseif ($form_id == 'user_profile_form') {
+    $form['s3'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('S3 credentials'),
+      '#description' => t('Credentials for access to create and manage an S3 bucket for this client\'s sites.'),
+    );
+    $form['s3']['s3_access_key_id'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Access key ID'),
+      '#attributes' => array('autocomplete' => 'off'),
+      '#default_value' => isset($form['#user']->s3_access_key_id) ? $form['#user']->s3_access_key_id : '',
+    );
+    $form['s3']['s3_secret_access_key'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Secret access key'),
+      '#attributes' => array('autocomplete' => 'off'),
+      '#default_value' => isset($form['#user']->s3_secret_access_key) ? $form['#user']->s3_secret_access_key : '',
+    );
+    $form['#validate'][] = 'hosting_s3_validate_credentials';
+  }
+  return $form;
+
+}
+
+/**
+ * Retrieve S3 credentials from a user.
+ */
+function hosting_s3_user_creds_get_creds($uid) {
+  $account = user_load($uid);
+  if (isset($account->s3_access_key_id) && isset($account->s3_secret_access_key) &&
+      !empty($account->s3_access_key_id) && !empty($account->s3_secret_access_key)
+    ) {
+    return array(
+      's3_access_key_id' => $account->s3_access_key_id,
+      's3_secret_access_key' => $account->s3_secret_access_key,
+    );
+  }
+  else {
+    return FALSE;
+  }
+}
+
+/**
+ * Form validate to check that client S3 credentials are set, and inject them into the site.
+ */
+function hosting_s3_validate_inherit_user_credentials($form, &$form_state) {
+  if ($form_state['values']['inherit_creds'] == 'user') {
+    global $user;
+    if ($user_creds = hosting_s3_user_creds_get_creds($user->uid)) {
+      // Inject the inherited credentials.
+      $form_state['values']['s3_access_key_id'] = $user_creds['s3_access_key_id'];
+      $form_state['values']['s3_secret_access_key'] = $user_creds['s3_secret_access_key'];
+      drupal_set_message('Set site S3 credentials from those in your user account.');
+    }
+    else {
+      form_set_error('s3', 'You tried to use S3 credentials from your user account, but none are set.');
+    }
+  }
+}
+
+/**
+ * Implements hook_node_insert().
+ */
+function hosting_s3_user_creds_user_insert(&$edit, $account, $category) {
+  if (!empty($edit['s3_access_key_id']) && !empty($edit['s3_secret_access_key'])) {
+    $id = db_insert('hosting_s3_users')->fields(array(
+      'uid' => $account->uid,
+      's3_access_key_id' => $edit['s3_access_key_id'],
+      's3_secret_access_key' => $edit['s3_secret_access_key'],
+    ))
+    ->execute();
+  }
+}
+
+/**
+ * Implements hook_user_update().
+ */
+function hosting_s3_user_creds_user_update(&$edit, $account, $category) {
+  if (FALSE === db_query("SELECT uid FROM {hosting_s3_users} WHERE uid = :uid", array(':uid' => $account->uid))->fetchField()) {
+    hosting_s3_user_creds_user_insert($edit, $account, $category);
+  }
+  else {
+    db_update('hosting_s3_users')
+      ->fields(array(
+        's3_access_key_id' => $edit['s3_access_key_id'],
+        's3_secret_access_key' => $edit['s3_secret_access_key'],
+      ))
+      ->condition('uid', $account->uid)
+      ->execute();
+  }
+}
+
+/**
+ * Implements hook_node_load().
+ */
+function hosting_s3_user_creds_user_load($users) {
+  foreach ($users as $uid => &$account) {
+    $fields = db_query("SELECT s3_access_key_id, s3_secret_access_key FROM {hosting_s3_users} WHERE uid = :uid", array(':uid' => $uid))->fetchAssoc();
+    if (is_array($fields)) {
+      foreach ($fields as $key => $value) {
+        $account->$key = $value;
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_node_delete().
+ */
+function hosting_s3_user_creds_user_delete($account) {
+  db_delete('hosting_s3_users')
+    ->condition('uid', $account->uid)
+    ->execute();
+}

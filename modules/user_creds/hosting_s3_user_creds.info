@@ -1,0 +1,5 @@
+name = Inherit S3 User Credentials
+description = Allows Aegir's S3 integration to inherit credentials from the user account.
+package = Hosting AWS
+core = 7.x
+dependencies[] = hosting_s3
