@@ -202,8 +202,10 @@ function hosting_s3_node_load($nodes, $types) {
   foreach ($nodes as $nid => &$node) {
     if ($node->type == 'site') {
       $fields = db_query("SELECT s3_access_key_id, s3_secret_access_key, s3_bucket_name FROM {hosting_s3_sites} WHERE vid = :vid", array(':vid' => $node->vid))->fetchAssoc();
-      foreach ($fields as $key => $value) {
-        $nodes[$nid]->$key = $value;
+      if (!empty($fields)) {
+        foreach ($fields as $key => $value) {
+          $nodes[$nid]->$key = $value;
+        }
       }
     }
   }
