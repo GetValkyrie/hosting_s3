@@ -4,9 +4,7 @@
  * Provision and manage S3 buckets for hosted Drupal sites.
  */
 
-require dirname(__FILE__) . '/vendor/autoload.php';
-use Aws\S3\S3Client;
-use Aws\Common\Credentials\Credentials;
+require_once dirname(__FILE__) . '/includes/s3_common.inc';
 
 /**
  * Implements hook_form_alter().
@@ -65,92 +63,33 @@ function hosting_s3_validate_credentials($form, &$form_state) {
   if (empty($access_key_id) && empty($secret_access_key)) {
     return;  // No credentials supplied, nothing more to do here.
   }
-  elseif (!empty($access_key_id) && empty($secret_access_key)) {
-    form_set_error('s3_secret_access_key', 'Both S3 credentials are required. `Secret access key` is blank.');
+  elseif (aegir_s3_credentials_exist($access_key_id, $secret_access_key, 'hosting_s3_handle_missing_keys')) {
+    $client = aegir_s3_client_factory($access_key_id, $secret_access_key);
+    return aegir_s3_validate_credentials($client, 'hosting_s3_handle_validation', 'hosting_s3_handle_exception');
   }
-  elseif (empty($access_key_id) && !empty($secret_access_key)) {
-    form_set_error('s3_access_key_id', 'Both S3 credentials are required. `Access key ID` is blank.');
-  }
-  else {
-    $client = _hosting_s3_client_factory($access_key_id, $secret_access_key);
-    return _hosting_s3_validate_credentials($client);
-  }
-}
-
-/**
- * Validation callback to ensure generated bucket name is valid for S3.
- *
- * See: hosting_s3_form_alter().
- */
-function hosting_s3_validate_bucket_name($form, &$form_state){
-  $access_key_id = $form_state['values']['s3_access_key_id'];
-  $secret_access_key = $form_state['values']['s3_secret_access_key'];
-  $client = _hosting_s3_client_factory($access_key_id, $secret_access_key);
-  $url = $form_state['values']['title'];
-  if ($bucket_name = _hosting_s3_suggest_bucket_name($client, $url)) {
-    if ($client->isValidBucketName($bucket_name)) {
-      $form_state['values']['s3_bucket_name'] = $bucket_name;
-      drupal_set_message(t('S3 bucket name set to %bucket.', array('%bucket' => $bucket_name)));
-    }
-    else {
-      form_set_error('title', t('Suggested bucket name (%bucket) failed S3 validation.', array('%bucket' => $bucket_name)));
-    }
-  }
-}
-
-/**
- * Validate S3 credentials.
- */
-function _hosting_s3_validate_credentials($client) {
-  try {
-    // This only validates that the keys themselves are valid, and not that
-    // they grant sufficient access to create/sync/delete buckets.
-    $result = $client->listBuckets();
-  } catch (Exception $e) {
-    _hosting_s3_handle_exception($e);
+  else {  // Missing key.
     return FALSE;
   }
-  if (isset($result)) {
-    drupal_set_message(t('S3 credentials validated.'));
-    return TRUE;
+}
+
+function hosting_s3_handle_missing_keys($missing_keys) {
+  foreach ($missing_keys as $key => $label) { 
+    form_set_error($key, "Both S3 credentials are required. `$label` is blank.");
   }
-  return FALSE;
 }
 
 /**
- * Instantiate and return an S3 client from a set of AWS credentials.
+ * Helper function to display a success message after validating S3 credentials.
  */
-function _hosting_s3_client_factory($access_key_id, $secret_access_key) {
-  $credentials = new Credentials($access_key_id, $secret_access_key);
-
-  return S3Client::factory(array('credentials' => $credentials));
-}
-
-/**
- * Suggest an available, unique bucket name based on a site's URL.
- */
-function _hosting_s3_suggest_bucket_name($client, $url) {
-  $suggest_base = str_replace('.', '-', gethostname() . '-' . $url);
-
-  if (!$client->doesBucketExist($suggest_base)) {
-    return $suggest_base;
-  }
-
-  for ($i = 0; $i < 100; $i++) {
-    $option = $suggest_base . $i;
-    if (!$client->doesBucketExist($option)) {
-      return $option;
-    }
-  }
-
-  form_set_error('s3', t("Could not find a free bucket name after 100 attempts"));
-  return false;
+function hosting_s3_handle_validation() {
+  drupal_set_message(t('S3 credentials validated.'));
+  return TRUE;
 }
 
 /**
  * Helper function to display errors from AWS.
  */
-function _hosting_s3_handle_exception($exception) {
+function hosting_s3_handle_exception($exception) {
   $code = $exception->getExceptionCode();
   $message= $exception->getMessage();
   $error = array();
@@ -158,19 +97,20 @@ function _hosting_s3_handle_exception($exception) {
   $error[] = t('Error code: @code', array('@code' => $code));
   $error[] = t('Error message: @message', array('@message' => $message));
   form_set_error('s3', implode('</li><li>', $error));
+  return FALSE;
 }
 
 /**
  * Implements hook_node_insert().
  */
 function hosting_s3_node_insert($node) {
-  if ($node->type == 'site' && !empty($node->s3_access_key_id) && !empty($node->s3_secret_access_key)) {
+  if ($node->type == 'site') {
     $id = db_insert('hosting_s3_sites')->fields(array(
       'vid' => $node->vid,
       'nid' => $node->nid,
-      's3_access_key_id' => $node->s3_access_key_id,
-      's3_secret_access_key' => $node->s3_secret_access_key,
-      's3_bucket_name' => $node->s3_bucket_name,
+      's3_access_key_id' => isset($node->s3_access_key_id) ? $node->s3_access_key_id : '',
+      's3_secret_access_key' => isset($node->s3_secret_access_key) ? $node->s3_secret_access_key : '',
+      's3_bucket_name' => isset($node->s3_bucket_name) ? $node->s3_bucket_name : '',
     ))
     ->execute();
   }
