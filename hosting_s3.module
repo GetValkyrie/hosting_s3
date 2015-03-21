@@ -13,7 +13,7 @@ function hosting_s3_form_alter(&$form, $form_state, $form_id) {
   if ($form_id == 'site_node_form') {
     $new_site = (bool) is_null($form['nid']['#value']);
     $read_only = !$new_site;
-    
+
     if (!$new_site) {
       $form['info']['bucket_name'] = array(
         '#type' => 'item',
@@ -43,7 +43,6 @@ function hosting_s3_form_alter(&$form, $form_state, $form_id) {
     );
 
     $form['#validate'][] = 'hosting_s3_validate_credentials';
-    $form['#validate'][] = 'hosting_s3_validate_bucket_name';
 
     return $form;
   }
@@ -73,7 +72,7 @@ function hosting_s3_validate_credentials($form, &$form_state) {
 }
 
 function hosting_s3_handle_missing_keys($missing_keys) {
-  foreach ($missing_keys as $key => $label) { 
+  foreach ($missing_keys as $key => $label) {
     form_set_error($key, "Both S3 credentials are required. `$label` is blank.");
   }
 }

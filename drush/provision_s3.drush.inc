@@ -23,7 +23,7 @@ function provision_s3_drush_init() {
  */
 function provision_s3_provision_services() {
   provision_s3_provision_register_autoload();
-  return array('s3' => NULL);
+  return array('s3' => 's3');
 }
 
 /**
@@ -45,9 +45,7 @@ function _provision_s3_enabled() {
     isset(d()->s3_access_key_id) &&     // Both credentials need to be set
     !is_null(d()->s3_access_key_id) &&
     isset(d()->s3_secret_access_key) &&
-    !is_null(d()->s3_secret_access_key) &&
-    isset(d()->s3_bucket_name) &&       // Can't do much without a bucket name...
-    !is_null(d()->s3_bucket_name)
+    !is_null(d()->s3_secret_access_key)
   );
 }
 
@@ -70,6 +68,23 @@ function provision_s3_provision_drupal_chgrp_directories_alter(&$chgrp, $url) {
 }
 
 // Allow s3 services to respond to normal provision events.
+function drush_provision_s3_provision_install_validate() {
+  if (_provision_s3_enabled()) {
+    return d()->service('s3')->install_validate();
+  }
+}
+
+function drush_provision_s3_pre_provision_install() {
+  if (_provision_s3_enabled()) {
+
+    d()->service('s3')->pre_install();
+  }
+}
+function drush_provision_s3_post_provision_install() {
+  if (_provision_s3_enabled()) {
+    d()->service('s3')->post_install();
+  }
+}
 function drush_provision_s3_pre_provision_delete() {
   if (_provision_s3_enabled()) {
     d()->service('s3')->pre_delete();
@@ -83,8 +98,6 @@ function drush_provision_s3_post_provision_delete() {
 function drush_provision_s3_pre_provision_verify() {
   if (_provision_s3_enabled()) {
     d()->service('s3')->pre_verify();
-    drush_log('S3 access key received from the frontend (d()->s3_access_key_id): ' . d()->s3_access_key_id);
-    drush_log('S3 secret access key received from the frontend (d()->s3_secret_access_key): ' . d()->s3_secret_access_key);
   }
 }
 function drush_provision_s3_post_provision_verify() {
