@@ -34,9 +34,9 @@ function hosting_s3_client_creds_form_alter(&$form, $form_state, $form_id) {
       // We specify each element separately so as not to overwrite existing entries.
       $form['s3']['inherit_creds']['#type'] = 'radios';
       $form['s3']['inherit_creds']['#title'] = t('Source for S3 credentials.');
-      $form['s3']['inherit_creds']['#default_value'] = 'none';
+      $form['s3']['inherit_creds']['#default_value'] = 'client';
       $form['s3']['inherit_creds']['#options']['none'] = 'Use the credentials above';
-      $form['s3']['inherit_creds']['#options']['client'] = 'Use the credentials from your client account';
+      $form['s3']['inherit_creds']['#options']['client'] = 'Use the credentials from this site\'s client account';
       $form['s3']['s3_access_key_id']['#disabled'] = TRUE;
       $form['s3']['s3_access_key_id']['#states']['enabled'][':input[name="inherit_creds"]'] = array(
         'value' => 'none',
@@ -83,10 +83,10 @@ function hosting_s3_validate_inherit_client_credentials($form, &$form_state) {
       // Inject the inherited credentials.
       $form_state['values']['s3_access_key_id'] = $client_creds['s3_access_key_id'];
       $form_state['values']['s3_secret_access_key'] = $client_creds['s3_secret_access_key'];
-      drupal_set_message('Set site S3 credentials from those in your client account.');
+      drupal_set_message('Set site S3 credentials from those in the client account.');
     }
     else {
-      form_set_error('s3', 'You tried to use S3 credentials from your client account, but none are set.');
+      form_set_error('s3', 'You tried to use S3 credentials from a client account, but none are set.');
     }
   }
 }
