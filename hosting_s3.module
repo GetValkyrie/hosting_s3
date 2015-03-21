@@ -15,10 +15,10 @@ function hosting_s3_form_alter(&$form, $form_state, $form_id) {
     $read_only = !$new_site;
 
     if (!$new_site) {
-      $form['info']['bucket_name'] = array(
+      $form['info']['S3 bucket_name'] = array(
         '#type' => 'item',
         '#disabled' => TRUE,
-        '#title' => t('Bucket name'),
+        '#title' => t('S3 bucket name'),
         '#markup' => !empty($form['#node']->s3_bucket_name) ? $form['#node']->s3_bucket_name : 'none',
       );
     }
@@ -131,6 +131,20 @@ function hosting_s3_node_update($node) {
       ))
       ->condition('vid', $node->vid)
       ->execute();
+  }
+}
+
+/**
+ * Implements hook_node_view().
+ */
+function hosting_s3_node_view($node, $view_mode, $langcode) {
+  if ($node->type == 'site') {
+    $node->content['info']['s3_bucket_name'] = array(
+      '#type' => 'item',
+      '#disabled' => TRUE,
+      '#title' => t('S3 bucket name'),
+      '#markup' => !empty($node->s3_bucket_name) ? $node->s3_bucket_name : 'none',
+    );
   }
 }
 
