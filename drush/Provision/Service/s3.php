@@ -49,6 +49,7 @@ class Provision_Service_s3 extends Provision_Service {
    */
   function pre_install() {
     $this->create_bucket();
+    $this->test_bucket();
   }
 
   /**
@@ -69,9 +70,61 @@ class Provision_Service_s3 extends Provision_Service {
    * Create an S3 bucket.
    */
   function create_bucket() {
-    $bucket_name = $this->get_bucket_name();
+    $bucket = $this->get_bucket_name();
     $client = $this->client_factory();
-    drush_log(dt('Creating S3 bucket `%bucket`.', array('%bucket' => $bucket_name)));
+    drush_log(dt('Creating S3 bucket `%bucket`.', array('%bucket' => $bucket)));
+    $result = $client->createBucket(array(
+      'Bucket' => $bucket,
+    ));
+    // Wait until the bucket is created.
+    $client->waitUntilBucketExists(array('Bucket' => $bucket,));
+    if ($client->doesBucketExist($bucket)) {
+      drush_log(dt('Created S3 bucket `%bucket`.', array('%bucket' => $bucket)), 'success');
+      return $result;
+    }
+    else {
+      return drush_set_error('ERROR_S3_BUCKET_NOT_CREATED', 'Could not create S3 bucket.');
+    }
+  }
+
+  /**
+   * Ensure we can create and delete objects in bucket.
+   */
+  function test_bucket() {
+    $bucket = $this->get_bucket_name();
+    $client = $this->client_factory();
+
+    // Generate unique test filename and content.
+    $test_key = uniqid("hosting_s3-test-key-", true);
+    $test_content = uniqid("hosting_s3-test-content-", true);
+
+    drush_log(dt('Checking access to `%bucket` bucket by uploading test file (%test_key)', array(
+      '%bucket' => $bucket,
+      '%test_key' => $test_key,
+    )));
+
+    $result = $client->putObject(array(
+      'Bucket' => $bucket,
+      'Key'    => $test_key,
+      'Body'   => $test_content,
+    ));
+    $result = $client->getObject(array(
+      'Bucket' => $bucket,
+      'Key'    => $test_key
+    ));
+
+    if ($result['Body'] == $test_content) {
+      drush_log(dt('Successfully uploaded test file to bucket.'), 'success');
+      drush_log(dt('Deleting test file (%test_key) from bucket.', array('%test_key' => $test_key)));
+      $result = $client->deleteObject(array(
+        'Bucket' => $bucket,
+        'Key'    => $test_key,
+      ));
+      return TRUE;
+    }
+    else {
+      return drush_set_error('ERROR_S3_TEST_FILE_NOT_CREATED', 'Could not create test file in S3 bucket.');
+    }
   }
 
   /**
