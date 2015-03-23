@@ -55,7 +55,23 @@ class Provision_Service_s3 extends Provision_Service {
    */
   function install_validate() {
     if ($this->validate_credentials()) {
-      return $this->validate_bucket_name();
+      $bucket_name = $this->suggest_bucket_name();
+      if ($this->validate_bucket_name($bucket_name)) {
+        $this->save_bucket_name($bucket_name);
+        return TRUE;
+      }
+    }
+    return FALSE;
+  }
+
+  /**
+   * Return an S3Client object.
+   */
+  function client_factory() {
+    $access_key_id = d()->s3_access_key_id;
+    $secret_access_key = d()->s3_secret_access_key;
+    if (aegir_s3_credentials_exist($access_key_id, $secret_access_key, 'handle_missing_keys', $this)) {
+      return aegir_s3_client_factory($access_key_id, $secret_access_key);
     }
     return FALSE;
   }
@@ -64,15 +80,7 @@ class Provision_Service_s3 extends Provision_Service {
    * Ensure provided credentials are complete and valid.
    */
   function validate_credentials() {
-    $access_key_id = d()->s3_access_key_id;
-    $secret_access_key = d()->s3_secret_access_key;
-    if (aegir_s3_credentials_exist($access_key_id, $secret_access_key, 'handle_missing_keys', $this)) {
-      $client = aegir_s3_client_factory($access_key_id, $secret_access_key);
-      return aegir_s3_validate_credentials($client, 'handle_validation', 'handle_exception', $this);
-    }
-    else {  // Missing key.
-      return FALSE;
-    }
+    return aegir_s3_validate_credentials($this->client_factory(), 'handle_validation', 'handle_exception', $this);
   }
 
   /**
@@ -110,33 +118,39 @@ class Provision_Service_s3 extends Provision_Service {
   /**
    * Ensure generated bucket name is valid for S3.
    */
-  function validate_bucket_name(){
-    $access_key_id = d()->s3_access_key_id;
-    $secret_access_key = d()->s3_secret_access_key;
-    $client = aegir_s3_client_factory($access_key_id, $secret_access_key);
+  function validate_bucket_name($bucket_name){
+    $client = $this->client_factory();
 
-    if ($bucket_name = $this->suggest_bucket_name($client, d()->uri)) {
+    if ($bucket_name = $this->suggest_bucket_name()) {
       if ($client->isValidBucketName($bucket_name)) {
-        // Pass the bucket name to the front-end.
-        // See: hosting_s3_post_hosting_install_task().
-        drush_set_option('s3_bucket_name', $bucket_name);
-        // Save the bucket name to the context.
-        d()->s3_bucket_name = $bucket_name;
-        d()->write_alias();
-        drush_log(dt('S3 bucket name set to %bucket.', array('%bucket' => $bucket_name)), 'ok');
         return TRUE;
       }
       else {
         drush_set_error('ERROR_INVALID_S3_BUCKET_NAME', dt('Suggested bucket name (%bucket) failed S3 validation.', array('%bucket' => $bucket_name)));
+        return FALSE;
       }
     }
   }
 
   /**
+   * Save bucket name to context and pass it back to the front-end.
+   */
+  function save_bucket_name($bucket_name) {
+    // Pass the bucket name to the front-end.
+    // See: hosting_s3_post_hosting_install_task().
+    drush_set_option('s3_bucket_name', $bucket_name);
+    // Save the bucket name to the context.
+    d()->s3_bucket_name = $bucket_name;
+    d()->write_alias();
+    drush_log(dt('S3 bucket name set to %bucket.', array('%bucket' => $bucket_name)), 'ok');
+  }
+
+  /**
    * Suggest an available, unique bucket name based on a site's URL.
    */
-  function suggest_bucket_name($client, $url) {
-    $suggest_base = str_replace('.', '-', gethostname() . '-' . $url);
+  function suggest_bucket_name() {
+    $client = $this->client_factory();
+    $suggest_base = str_replace('.', '-', gethostname() . '-' . d()->uri);
 
     if (!$client->doesBucketExist($suggest_base)) {
       return $suggest_base;
