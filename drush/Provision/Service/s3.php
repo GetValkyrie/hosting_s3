@@ -45,9 +45,33 @@ class Provision_Service_s3 extends Provision_Service {
   }
 
   /**
+   * Wrapper around drush_HOOK_pre_provision_install().
+   */
+  function pre_install() {
+    $this->create_bucket();
+  }
+
+  /**
    * Wrapper around drush_HOOK_pre_provision_verify().
    */
   function pre_verify() {
+
+  }
+
+  /**
+   * Return the bucket name from the site context.
+   */
+  function get_bucket_name() {
+    return d()->s3_bucket_name;
+  }
+
+  /**
+   * Create an S3 bucket.
+   */
+  function create_bucket() {
+    $bucket_name = $this->get_bucket_name();
+    $client = $this->client_factory();
+    drush_log(dt('Creating S3 bucket `%bucket`.', array('%bucket' => $bucket_name)));
   }
 
   /**
