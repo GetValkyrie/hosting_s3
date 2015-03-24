@@ -175,22 +175,24 @@ class Provision_Service_s3 extends Provision_Service {
     $bucket = $this->get_bucket_name();
     $client = $this->client_factory();
 
-    drush_log(dt('Deleting bucket `%bucket`.', array('%bucket' => $bucket)));
+    if (!is_null($bucket) && $client->doesBucketExist($bucket)) {
+      drush_log(dt('Deleting bucket `%bucket`.', array('%bucket' => $bucket)));
 
-    $result = $client->clearBucket($bucket);
-    drush_log(dt('Cleared bucket contents.'));
+      $result = $client->clearBucket($bucket);
+      drush_log(dt('Cleared bucket contents.'));
 
-    $result = $client->deleteBucket(array(
-      'Bucket' => $bucket
-    ));
-    // Wait until the bucket is deleted.
-    $client->waitUntilBucketNotExists(array('Bucket' => $bucket,));
-    if (!$client->doesBucketExist($bucket)) {
-      drush_log(dt('Deleted S3 bucket `%bucket`.', array('%bucket' => $bucket)), 'success');
-      return $result;
-    }
-    else {
-      return drush_set_error('ERROR_S3_BUCKET_NOT_DELETED', 'Could not delete S3 bucket.');
+      $result = $client->deleteBucket(array(
+        'Bucket' => $bucket
+      ));
+      // Wait until the bucket is deleted.
+      $client->waitUntilBucketNotExists(array('Bucket' => $bucket,));
+      if (!$client->doesBucketExist($bucket)) {
+        drush_log(dt('Deleted S3 bucket `%bucket`.', array('%bucket' => $bucket)), 'success');
+        return $result;
+      }
+      else {
+        return drush_set_error('ERROR_S3_BUCKET_NOT_DELETED', 'Could not delete S3 bucket.');
+      }
     }
   }
 
