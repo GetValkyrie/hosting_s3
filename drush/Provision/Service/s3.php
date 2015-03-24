@@ -45,6 +45,20 @@ class Provision_Service_s3 extends Provision_Service {
   }
 
   /**
+   * Wrapper around drush_HOOK_provision_install_validate().
+   */
+  function install_validate() {
+    if ($this->validate_credentials()) {
+      $bucket_name = $this->suggest_bucket_name();
+      if ($this->validate_bucket_name($bucket_name)) {
+        $this->save_bucket_name($bucket_name);
+        return TRUE;
+      }
+    }
+    return FALSE;
+  }
+
+  /**
    * Wrapper around drush_HOOK_pre_provision_install().
    */
   function pre_install() {
@@ -56,7 +70,17 @@ class Provision_Service_s3 extends Provision_Service {
    * Wrapper around drush_HOOK_pre_provision_verify().
    */
   function pre_verify() {
+    $this->validate_credentials();
+    $this->test_bucket();
+  }
 
+  /**
+   * Wrapper around drush_HOOK_pre_provision_delete().
+   */
+  function pre_delete() {
+    // TODO: We usually take a site backup prior to deletion.
+    // Should we sync the bucket locally for such a backup?
+    $this->delete_bucket();
   }
 
   /**
@@ -124,6 +148,32 @@ class Provision_Service_s3 extends Provision_Service {
     }
     else {
       return drush_set_error('ERROR_S3_TEST_FILE_NOT_CREATED', 'Could not create test file in S3 bucket.');
+    }
+  }
+
+  /**
+   * Delete a bucket.
+   */
+  function delete_bucket() {
+    $bucket = $this->get_bucket_name();
+    $client = $this->client_factory();
+
+    drush_log(dt('Deleting bucket `%bucket`.', array('%bucket' => $bucket)));
+
+    $result = $client->clearBucket($bucket);
+    drush_log(dt('Cleared bucket contents.'));
+
+    $result = $client->deleteBucket(array(
+      'Bucket' => $bucket
+    ));
+    // Wait until the bucket is deleted.
+    $client->waitUntilBucketNotExists(array('Bucket' => $bucket,));
+    if (!$client->doesBucketExist($bucket)) {
+      drush_log(dt('Deleted S3 bucket `%bucket`.', array('%bucket' => $bucket)), 'success');
+      return $result;
+    }
+    else {
+      return drush_set_error('ERROR_S3_BUCKET_NOT_DELETED', 'Could not delete S3 bucket.');
     }
   }
 
