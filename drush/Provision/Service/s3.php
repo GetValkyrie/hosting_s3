@@ -178,20 +178,6 @@ class Provision_Service_s3 extends Provision_Service {
   }
 
   /**
-   * Wrapper around drush_HOOK_provision_install_validate().
-   */
-  function install_validate() {
-    if ($this->validate_credentials()) {
-      $bucket_name = $this->suggest_bucket_name();
-      if ($this->validate_bucket_name($bucket_name)) {
-        $this->save_bucket_name($bucket_name);
-        return TRUE;
-      }
-    }
-    return FALSE;
-  }
-
-  /**
    * Return an S3Client object.
    */
   function client_factory() {
