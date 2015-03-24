@@ -45,6 +45,23 @@ class Provision_Service_s3 extends Provision_Service {
   }
 
   /**
+   * Wrapper around hook_provision_drupal_config().
+   */
+  function drupal_config($uri, $data) {
+    $access_key_id = d()->s3_access_key_id;
+    $secret_access_key = d()->s3_secret_access_key;
+    $bucket = $this->get_bucket_name();
+
+    drush_log('Injecting S3 bucket and credentials into site settings.php');
+    $lines = array();
+    $lines[] = "  \$conf['aws_key'] = '$access_key_id';";
+    $lines[] = "  \$conf['aws_secret'] = '$secret_access_key';";
+    $lines[] = "  \$conf['amazons3_bucket'] = '$bucket';";
+
+    return implode("\n", $lines);
+  }
+
+  /**
    * Wrapper around drush_HOOK_provision_install_validate().
    */
   function install_validate() {

@@ -67,6 +67,15 @@ function provision_s3_provision_drupal_chgrp_directories_alter(&$chgrp, $url) {
   }
 }
 
+/**
+ * Implements hook_provision_drupal_config().
+ */
+function provision_s3_provision_drupal_config($uri, $data) {
+  if (_provision_s3_enabled()) {
+    return d()->service('s3')->drupal_config($uri, $data);
+  }
+}
+
 // Allow s3 services to respond to normal provision events.
 function drush_provision_s3_provision_install_validate() {
   if (_provision_s3_enabled()) {
