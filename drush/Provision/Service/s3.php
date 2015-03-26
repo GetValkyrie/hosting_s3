@@ -205,6 +205,10 @@ class Provision_Service_s3 extends Provision_Service {
    * Return an S3Client object.
    */
   function client_factory() {
+    static $client = NULL;
+    if (!is_null($client)) {
+      return $client;
+    }
     $access_key_id = d()->s3_access_key_id;
     $secret_access_key = d()->s3_secret_access_key;
     if (aegir_s3_credentials_exist($access_key_id, $secret_access_key, 'handle_missing_keys', $this)) {
