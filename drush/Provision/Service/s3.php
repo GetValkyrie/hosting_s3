@@ -92,6 +92,59 @@ class Provision_Service_s3 extends Provision_Service {
   }
 
   /**
+   * Back up a site bucket.
+   *
+   * @return
+   *   The generated name of the backup bucket.
+   */
+  function backup_site_bucket() {
+    $old_bucket = $this->get_bucket_name();
+    $new_bucket = $this->suggest_bucket_name();
+    // Save new bucket name to be used in the settings.php packaged in the
+    // backup tarball. See: drupal_config(). This also allows us to pass the
+    // bucket name to the front-end in hosting_s3_post_hosting_backup_task(),
+    // and delete it in pre_backup_rollback().
+    drush_set_option('s3_backup_name', $new_bucket);
+
+    if ($this->validate_bucket_name($new_bucket)) {
+      return $this->copy_bucket($old_bucket, $new_bucket);
+    }
+  }
+
+  /**
+   * Create a new bucket and sync contents from another bucket.
+   */
+  function copy_bucket($old_bucket, $new_bucket) {
+    $buckets = array(
+      '%old_bucket' => $this->get_bucket_name(),
+      '%new_bucket' => $this->suggest_bucket_name(),
+    );
+
+    drush_log(dt('Copying site bucket %old_bucket to backup bucket %new_bucket.', $buckets));
+    $this->create_bucket($new_bucket);
+    $client = $this->client_factory();
+
+    // See: http://stackoverflow.com/questions/21797528/php-how-to-sync-data-between-s3-buckets-using-php-code-without-using-the-cli
+    try {
+      $client->registerStreamWrapper();
+    } catch (Exception $e) {
+      drush_set_error('S3_CANNOT_REGISTER_STREAM_WRAPPER', dt('Could not register S3 stream wrapper.'));
+      $this->handle_exception($e);
+      return FALSE;
+    }
+    try {
+      $client->uploadDirectory("s3://$old_bucket", $new_bucket);
+    } catch (Exception $e) {
+      drush_set_error('S3_CANNOT_COPY_BUCKETS', dt('Could not copy contents of %old_bucket to %new_bucket', $buckets));
+      $this->handle_exception($e);
+      return FALSE;
+    }
+
+    drush_log(dt('Copied contents of %old_bucket to %new_bucket', $buckets), 'success');
+    return TRUE;
+  }
+
+  /**
    * Wrapper around drush_HOOK_pre_provision_delete().
    */
   function pre_delete() {
