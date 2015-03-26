@@ -46,10 +46,19 @@ function hosting_s3_post_hosting_install_task($task, $data) {
 }
 
 /**
- * Implements hook_post_hosting_TASK_TYPE_task().
+ * Implements drush_HOOK_hosting_task()
+ *
+ * We do not use the hook_post_hosting_TYPE_task() hook because it runs too
+ * early, we need to run after the backup is run and returns the backup bid to
+ * the frontend. So this (clunky) implementation is similar to
+ * drush_hosting_post_hosting_task() in hosting/task.hosting.inc.
+ *
+ * See: https://github.com/drush-ops/drush/pull/462
  */
-function hosting_s3_post_hosting_backup_task($task, $data) {
-  if (isset($data['context']['s3_backup_name'])) {
+function drush_hosting_s3_post_hosting_task($tid) {
+  $task = &drush_get_context('HOSTING_TASK');
+  $data = drush_get_context('HOSTING_DRUSH_OUTPUT');
+  if ($task->task_type == 'backup' && isset($data['context']['s3_backup_name'])) {
     // Save the backup bucket name associated with the backup ID.
     // See: Provision_Service_s3::pre_backup().
     $bid = hosting_s3_get_latest_site_backup($task->ref->nid);
