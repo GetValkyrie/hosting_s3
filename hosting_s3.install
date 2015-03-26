@@ -10,7 +10,6 @@
 function hosting_s3_schema() {
   $schema['hosting_s3_sites'] = array(
     'fields' => array(
-#TODO: do we want to revision bucket credentials?
       'vid' => array(
         'type' => 'int',
         'not null' => TRUE,

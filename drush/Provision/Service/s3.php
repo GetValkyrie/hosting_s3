@@ -199,6 +199,9 @@ class Provision_Service_s3 extends Provision_Service {
         return drush_set_error('ERROR_S3_BUCKET_NOT_DELETED', 'Could not delete S3 bucket.');
       }
     }
+    else {
+      drush_log(dt('Bucket %bucket does not exist, so it cannot be deleted.', array('%bucket' => $bucket)), 'warning');
+    }
   }
 
   /**
@@ -249,7 +252,7 @@ class Provision_Service_s3 extends Provision_Service {
     $code = $exception->getExceptionCode();
     $message= $exception->getMessage();
     $error = array();
-    $error[] = t('There was an error validating your S3 credentials.');
+    $error[] = t('There was an error in a request to S3.');
     $error[] = t('Error code: @code', array('@code' => $code));
     $error[] = t('Error message: @message', array('@message' => $message));
     drush_set_error('ERROR_S3_EXCEPTION', implode('</li><li>', $error));
