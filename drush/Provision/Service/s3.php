@@ -92,6 +92,31 @@ class Provision_Service_s3 extends Provision_Service {
   }
 
   /**
+   * Wrapper around drush_HOOK_pre_provision_backup().
+   */
+  function pre_backup() {
+    $this->backup_site_bucket();
+  }
+
+  /**
+   * Wrapper around drush_HOOK_provision_backup_rollback().
+   */
+  function pre_backup_rollback() {
+    if ($bucket = drush_get_option('s3_backup_name', FALSE)) {
+      $this->delete_bucket($bucket);
+    }
+    else {
+      drush_log("'s3_backup_name' option not set.",'warning');
+    }
+  }
+
+  /**
+   * Wrapper around drush_HOOK_post_provision_backup().
+   */
+  function post_backup() {
+  }
+
+  /**
    * Back up a site bucket.
    *
    * @return

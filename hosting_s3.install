@@ -42,5 +42,24 @@ function hosting_s3_schema() {
     ),
   );
 
+  $schema['hosting_s3_backups'] = array(
+    'fields' => array(
+      'bid' => array(
+        'type' => 'int',
+        'size' => 'big',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'bucket' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'default' => '',
+      )
+    ),
+    'indexes' => array(
+      'bid' => array('bid'),
+    ),
+  );
+
   return $schema;
 }
