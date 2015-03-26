@@ -153,16 +153,12 @@ class Provision_Service_s3 extends Provision_Service {
     try {
       $client->registerStreamWrapper();
     } catch (Exception $e) {
-      drush_set_error('S3_CANNOT_REGISTER_STREAM_WRAPPER', dt('Could not register S3 stream wrapper.'));
-      $this->handle_exception($e);
-      return FALSE;
+      return $this->handle_exception($e, dt('Could not register S3 stream wrapper.'));
     }
     try {
       $client->uploadDirectory("s3://$old_bucket", $new_bucket);
     } catch (Exception $e) {
-      drush_set_error('S3_CANNOT_COPY_BUCKETS', dt('Could not copy contents of %old_bucket to %new_bucket', $buckets));
-      $this->handle_exception($e);
-      return FALSE;
+      return $this->handle_exception($e, dt('Could not copy contents of %old_bucket to %new_bucket', $buckets));
     }
 
     drush_log(dt('Copied contents of %old_bucket to %new_bucket', $buckets), 'success');
@@ -292,7 +288,7 @@ class Provision_Service_s3 extends Provision_Service {
     }
     $access_key_id = d()->s3_access_key_id;
     $secret_access_key = d()->s3_secret_access_key;
-    if (aegir_s3_credentials_exist($access_key_id, $secret_access_key, 'handle_missing_keys', $this)) {
+    if (aegir_s3_credentials_exist($access_key_id, $secret_access_key, array($this, 'handle_missing_keys'))) {
       return aegir_s3_client_factory($access_key_id, $secret_access_key);
     }
     return FALSE;
@@ -302,7 +298,7 @@ class Provision_Service_s3 extends Provision_Service {
    * Ensure provided credentials are complete and valid.
    */
   function validate_credentials() {
-    return aegir_s3_validate_credentials($this->client_factory(), 'handle_validation', 'handle_exception', $this);
+    return aegir_s3_validate_credentials($this->client_factory(), array($this, 'handle_validation'), array($this, 'handle_exception'));
   }
 
   /**
@@ -326,15 +322,14 @@ class Provision_Service_s3 extends Provision_Service {
   /**
    * Error handler for API exceptions.
    */
-  function handle_exception($exception) {
+  function handle_exception($exception, $message = 'There was an error in a request to S3.') {
     $code = $exception->getExceptionCode();
     $message= $exception->getMessage();
     $error = array();
-    $error[] = t('There was an error in a request to S3.');
+    $error[] = $message;
     $error[] = t('Error code: @code', array('@code' => $code));
     $error[] = t('Error message: @message', array('@message' => $message));
-    drush_set_error('ERROR_S3_EXCEPTION', implode('</li><li>', $error));
-    return FALSE;
+    return drush_set_error('ERROR_S3_EXCEPTION', implode('</li><li>', $error));
   }
 
   /**
