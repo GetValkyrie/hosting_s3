@@ -110,15 +110,17 @@ class Provision_Service_s3 extends Provision_Service {
   /**
    * Create an S3 bucket.
    */
-  function create_bucket() {
-    $bucket = $this->get_bucket_name();
+  function create_bucket($bucket = NULL) {
+    if (is_null($bucket)) {
+      $bucket = $this->get_bucket_name();
+    }
     $client = $this->client_factory();
     drush_log(dt('Creating S3 bucket `%bucket`.', array('%bucket' => $bucket)));
     $result = $client->createBucket(array(
       'Bucket' => $bucket,
     ));
     // Wait until the bucket is created.
-    $client->waitUntilBucketExists(array('Bucket' => $bucket,));
+    $client->waitUntilBucketExists(array('Bucket' => $bucket));
     if ($client->doesBucketExist($bucket)) {
       drush_log(dt('Created S3 bucket `%bucket`.', array('%bucket' => $bucket)), 'success');
       return $result;
@@ -171,15 +173,18 @@ class Provision_Service_s3 extends Provision_Service {
   /**
    * Delete a bucket.
    */
-  function delete_bucket() {
-    $bucket = $this->get_bucket_name();
+  function delete_bucket($bucket = NULL) {
+    if (is_null($bucket)) {
+      $bucket = $this->get_bucket_name();
+    }
     $client = $this->client_factory();
 
-    if (!is_null($bucket) && $client->doesBucketExist($bucket)) {
+    if ($client->doesBucketExist($bucket)) {
       drush_log(dt('Deleting bucket `%bucket`.', array('%bucket' => $bucket)));
 
+      drush_log(dt('Clearing bucket contents.'));
       $result = $client->clearBucket($bucket);
-      drush_log(dt('Cleared bucket contents.'));
+      drush_log(dt('Cleared bucket contents.'), 'success');
 
       $result = $client->deleteBucket(array(
         'Bucket' => $bucket
