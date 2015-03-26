@@ -283,15 +283,14 @@ class Provision_Service_s3 extends Provision_Service {
    */
   function client_factory() {
     static $client = NULL;
-    if (!is_null($client)) {
-      return $client;
+    if (is_null($client)) {
+      $access_key_id = d()->s3_access_key_id;
+      $secret_access_key = d()->s3_secret_access_key;
+      if (aegir_s3_credentials_exist($access_key_id, $secret_access_key, array($this, 'handle_missing_keys'))) {
+        $client = aegir_s3_client_factory($access_key_id, $secret_access_key);
+      }
     }
-    $access_key_id = d()->s3_access_key_id;
-    $secret_access_key = d()->s3_secret_access_key;
-    if (aegir_s3_credentials_exist($access_key_id, $secret_access_key, array($this, 'handle_missing_keys'))) {
-      return aegir_s3_client_factory($access_key_id, $secret_access_key);
-    }
-    return FALSE;
+    return $client;
   }
 
   /**
