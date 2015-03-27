@@ -96,11 +96,17 @@ class Provision_Service_s3 extends Provision_Service {
    */
   function pre_backup() {
     $this->backup_site_bucket();
-    # Strip .gz from the backup filename. This will stop the backup process
-    # from compressing the backup, thus allowing us to operate on a tarfile
-    # directly. This, in turn, allows us to append the backup bucket name to
-    # the settings.php that is packaged with the backup. See: post_backup().
-    drush_log('Overriding backup filename, to block gzipping.');
+    $this->override_backup_filename();
+  }
+
+  /**
+   * Strip .gz from the backup filename. This will stop the backup process
+   * from compressing the backup, thus allowing us to operate on a tarfile
+   * directly. This, in turn, allows us to append the backup bucket name to
+   * the settings.php that is packaged with the backup. See: post_backup().
+   */
+  function override_backup_filename() {
+    drush_log('Overriding backup filename to block gzipping.');
     $backup_file = drush_get_option('backup_file', NULL);
     drush_set_option('s3_orig_backup_file', $backup_file);
     drush_set_option('backup_file', preg_replace('/\.gz$/', '', $backup_file));
@@ -122,6 +128,13 @@ class Provision_Service_s3 extends Provision_Service {
    * Wrapper around drush_HOOK_post_provision_backup().
    */
   function post_backup() {
+    $this->inject_backup_settings();
+  }
+
+  /**
+   * Inject backup bucket name into settings.php packaged with backup.
+   */
+  function inject_backup_settings() {
     $orig_backup_file = drush_get_option('s3_orig_backup_file', FALSE);
     $bucket = drush_get_option('s3_backup_name', FALSE);
     if ($orig_backup_file && $bucket) {
