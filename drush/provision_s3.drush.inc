@@ -77,12 +77,12 @@ function provision_s3_provision_drupal_config($uri, $data) {
 }
 
 // Allow s3 services to respond to normal provision events.
+
 function drush_provision_s3_provision_install_validate() {
   if (_provision_s3_enabled()) {
     return d()->service('s3')->install_validate();
   }
 }
-
 function drush_provision_s3_pre_provision_install() {
   if (_provision_s3_enabled()) {
     d()->service('s3')->pre_install();

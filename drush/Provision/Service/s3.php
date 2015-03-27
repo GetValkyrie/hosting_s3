@@ -17,6 +17,12 @@ class Provision_Service_s3 extends Provision_Service {
   }
 
   /**
+   * Drush hooks.
+   *
+   * Methods in this section are called from ../../provision_s3.drush.inc
+   */
+
+  /**
    * Wrapper around hook_provision_drupal_create_directories_alter().
    */
   function create_directories_alter(&$dirs, $url) {
@@ -100,19 +106,6 @@ class Provision_Service_s3 extends Provision_Service {
   }
 
   /**
-   * Strip .gz from the backup filename. This will stop the backup process
-   * from compressing the backup, thus allowing us to operate on a tarfile
-   * directly. This, in turn, allows us to append the backup bucket name to
-   * the settings.php that is packaged with the backup. See: post_backup().
-   */
-  function override_backup_filename() {
-    drush_log('Overriding backup filename to block gzipping.');
-    $backup_file = drush_get_option('backup_file', NULL);
-    drush_set_option('s3_orig_backup_file', $backup_file);
-    drush_set_option('backup_file', preg_replace('/\.gz$/', '', $backup_file));
-  }
-
-  /**
    * Wrapper around drush_HOOK_provision_backup_rollback().
    */
   function pre_backup_rollback() {
@@ -129,6 +122,57 @@ class Provision_Service_s3 extends Provision_Service {
    */
   function post_backup() {
     $this->inject_backup_settings();
+  }
+
+  /**
+   * Wrapper around drush_HOOK_pre_provision_backup_delete().
+   */
+  function pre_backup_delete() {
+
+  }
+
+  /**
+   * Wrapper around drush_HOOK_post_provision_backup_delete().
+   */
+  function post_backup_delete() {
+    $backups = drush_get_option('s3_backups_to_delete', array());
+    foreach ($backups as $backup) {
+      $this->delete_bucket($backup);
+    }
+  }
+
+  /**
+   * Wrapper around drush_HOOK_pre_provision_delete().
+   */
+  function pre_delete() {
+    // TODO: We usually take a site backup prior to deletion.
+    // Should we sync the bucket locally for such a backup?
+    $this->delete_bucket();
+  }
+
+
+  /**
+   * Helper methods.
+   */
+
+  /**
+   * Back up a site bucket.
+   *
+   * @return
+   *   The generated name of the backup bucket.
+   */
+  function backup_site_bucket() {
+    $site_bucket = $this->get_bucket_name();
+    $backup_bucket = $this->suggest_bucket_name();
+    // Save new bucket name to be used in the settings.php packaged in the
+    // backup tarball. See: drupal_config(). This also allows us to pass the
+    // bucket name to the front-end in hosting_s3_post_hosting_backup_task(),
+    // and delete it in pre_backup_rollback().
+    drush_set_option('s3_backup_name', $backup_bucket);
+
+    if ($this->validate_bucket_name($backup_bucket)) {
+      return $this->copy_bucket($site_bucket, $backup_bucket);
+    }
   }
 
   /**
@@ -171,40 +215,16 @@ class Provision_Service_s3 extends Provision_Service {
   }
 
   /**
-   * Wrapper around drush_HOOK_pre_provision_backup_delete().
+   * Strip .gz from the backup filename. This will stop the backup process
+   * from compressing the backup, thus allowing us to operate on a tarfile
+   * directly. This, in turn, allows us to append the backup bucket name to
+   * the settings.php that is packaged with the backup. See: post_backup().
    */
-  function pre_backup_delete() {
-
-  }
-
-  /**
-   * Wrapper around drush_HOOK_post_provision_backup_delete().
-   */
-  function post_backup_delete() {
-    $backups = drush_get_option('s3_backups_to_delete', array());
-    foreach ($backups as $backup) {
-      $this->delete_bucket($backup);
-    }
-  }
-
-  /**
-   * Back up a site bucket.
-   *
-   * @return
-   *   The generated name of the backup bucket.
-   */
-  function backup_site_bucket() {
-    $site_bucket = $this->get_bucket_name();
-    $backup_bucket = $this->suggest_bucket_name();
-    // Save new bucket name to be used in the settings.php packaged in the
-    // backup tarball. See: drupal_config(). This also allows us to pass the
-    // bucket name to the front-end in hosting_s3_post_hosting_backup_task(),
-    // and delete it in pre_backup_rollback().
-    drush_set_option('s3_backup_name', $backup_bucket);
-
-    if ($this->validate_bucket_name($backup_bucket)) {
-      return $this->copy_bucket($site_bucket, $backup_bucket);
-    }
+  function override_backup_filename() {
+    drush_log('Overriding backup filename to block gzipping.');
+    $backup_file = drush_get_option('backup_file', NULL);
+    drush_set_option('s3_orig_backup_file', $backup_file);
+    drush_set_option('backup_file', preg_replace('/\.gz$/', '', $backup_file));
   }
 
   /**
@@ -234,15 +254,6 @@ class Provision_Service_s3 extends Provision_Service {
 
     drush_log(dt('Copied contents of %src_bucket to %dest_bucket', $buckets), 'success');
     return TRUE;
-  }
-
-  /**
-   * Wrapper around drush_HOOK_pre_provision_delete().
-   */
-  function pre_delete() {
-    // TODO: We usually take a site backup prior to deletion.
-    // Should we sync the bucket locally for such a backup?
-    $this->delete_bucket();
   }
 
   /**

@@ -93,27 +93,3 @@ function drush_hosting_s3_post_hosting_backup_delete_task($task, $data) {
     hosting_s3_delete_backup($bid);
   }
 }
-
-/**
- * Look up the most recent backup for a given site.
- */
-function hosting_s3_get_latest_site_backup($nid) {
-  return db_query("SELECT bid FROM {hosting_site_backups} WHERE site = :site ORDER BY timestamp DESC LIMIT 1", array(':site' => $nid))->fetchField();
-}
-
-function hosting_s3_save_backup($bid, $bucket) {
-  db_insert('hosting_s3_backups')->fields(array(
-    'bid' => $bid,
-    'bucket' => $bucket,
-  ))->execute();
-}
-
-function hosting_s3_delete_backup($bid) {
-  db_delete('hosting_s3_backups')
-    ->condition('bid', $bid)
-    ->execute();
-}
-
-function hosting_s3_load_backup($bid) {
-  return db_query("SELECT bucket FROM {hosting_s3_backups} WHERE bid = :bid", array(':bid' => $bid))->fetchField();
-}
