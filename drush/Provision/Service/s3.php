@@ -181,6 +181,10 @@ class Provision_Service_s3 extends Provision_Service {
    * Wrapper around drush_HOOK_post_provision_backup_delete().
    */
   function post_backup_delete() {
+    $backups = drush_get_option('s3_backups_to_delete', array());
+    foreach ($backups as $backup) {
+      $this->delete_bucket($backup);
+    }
   }
 
   /**

@@ -46,7 +46,7 @@ function hosting_s3_post_hosting_install_task($task, $data) {
 }
 
 /**
- * Implements drush_HOOK_hosting_task()
+ * Implements drush_HOOK_post_hosting_task().
  *
  * We do not use the hook_post_hosting_TYPE_task() hook because it runs too
  * early, we need to run after the backup is run and returns the backup bid to
@@ -68,6 +68,33 @@ function drush_hosting_s3_post_hosting_task($tid) {
 }
 
 /**
+ * Implements drush_HOOK_pre_hosting_task()
+ */
+function drush_hosting_s3_pre_hosting_task() {
+  $task =& drush_get_context('HOSTING_TASK');
+  if ($task->task_type == 'backup-delete') {
+    $bids = array_keys($task->task_args);
+    $buckets = array();
+    foreach ($bids as $bid) {
+      $buckets[] = hosting_s3_load_backup($bid);
+    }
+    // Pass this to the backend.
+    // See: Provision_Service_s3::post_backup_delete().
+    $task->options['s3_backups_to_delete'] = $buckets;
+  }
+}
+
+/**
+ * Implements drush_HOOK_post_hosting_TASK_TYPE_task().
+ */
+function drush_hosting_s3_post_hosting_backup_delete_task($task, $data) {
+  $bids = array_keys($task->task_args);
+  foreach ($bids as $bid) {
+    hosting_s3_delete_backup($bid);
+  }
+}
+
+/**
  * Look up the most recent backup for a given site.
  */
 function hosting_s3_get_latest_site_backup($nid) {
@@ -79,4 +106,14 @@ function hosting_s3_save_backup($bid, $bucket) {
     'bid' => $bid,
     'bucket' => $bucket,
   ))->execute();
+}
+
+function hosting_s3_delete_backup($bid) {
+  db_delete('hosting_s3_backups')
+    ->condition('bid', $bid)
+    ->execute();
+}
+
+function hosting_s3_load_backup($bid) {
+  return db_query("SELECT bucket FROM {hosting_s3_backups} WHERE bid = :bid", array(':bid' => $bid))->fetchField();
 }
