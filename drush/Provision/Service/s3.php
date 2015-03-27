@@ -171,6 +171,19 @@ class Provision_Service_s3 extends Provision_Service {
   }
 
   /**
+   * Wrapper around drush_HOOK_pre_provision_backup_delete().
+   */
+  function pre_backup_delete() {
+
+  }
+
+  /**
+   * Wrapper around drush_HOOK_post_provision_backup_delete().
+   */
+  function post_backup_delete() {
+  }
+
+  /**
    * Back up a site bucket.
    *
    * @return
