@@ -164,30 +164,30 @@ class Provision_Service_s3 extends Provision_Service {
    *   The generated name of the backup bucket.
    */
   function backup_site_bucket() {
-    $old_bucket = $this->get_bucket_name();
-    $new_bucket = $this->suggest_bucket_name();
+    $site_bucket = $this->get_bucket_name();
+    $backup_bucket = $this->suggest_bucket_name();
     // Save new bucket name to be used in the settings.php packaged in the
     // backup tarball. See: drupal_config(). This also allows us to pass the
     // bucket name to the front-end in hosting_s3_post_hosting_backup_task(),
     // and delete it in pre_backup_rollback().
-    drush_set_option('s3_backup_name', $new_bucket);
+    drush_set_option('s3_backup_name', $backup_bucket);
 
-    if ($this->validate_bucket_name($new_bucket)) {
-      return $this->copy_bucket($old_bucket, $new_bucket);
+    if ($this->validate_bucket_name($backup_bucket)) {
+      return $this->copy_bucket($site_bucket, $backup_bucket);
     }
   }
 
   /**
    * Create a new bucket and sync contents from another bucket.
    */
-  function copy_bucket($old_bucket, $new_bucket) {
+  function copy_bucket($src_bucket, $dest_bucket) {
     $buckets = array(
-      '%old_bucket' => $this->get_bucket_name(),
-      '%new_bucket' => $this->suggest_bucket_name(),
+      '%src_bucket' => $src_bucket,
+      '%dest_bucket' => $dest_bucket,
     );
 
-    drush_log(dt('Copying site bucket %old_bucket to backup bucket %new_bucket.', $buckets));
-    $this->create_bucket($new_bucket);
+    drush_log(dt('Copying site bucket %src_bucket to backup bucket %dest_bucket.', $buckets));
+    $this->create_bucket($dest_bucket);
     $client = $this->client_factory();
 
     // See: http://stackoverflow.com/questions/21797528/php-how-to-sync-data-between-s3-buckets-using-php-code-without-using-the-cli
@@ -197,12 +197,12 @@ class Provision_Service_s3 extends Provision_Service {
       return $this->handle_exception($e, dt('Could not register S3 stream wrapper.'));
     }
     try {
-      $client->uploadDirectory("s3://$old_bucket", $new_bucket);
+      $client->uploadDirectory("s3://$src_bucket", $dest_bucket);
     } catch (Exception $e) {
-      return $this->handle_exception($e, dt('Could not copy contents of %old_bucket to %new_bucket', $buckets));
+      return $this->handle_exception($e, dt('Could not copy contents of %src_bucket to %dest_bucket', $buckets));
     }
 
-    drush_log(dt('Copied contents of %old_bucket to %new_bucket', $buckets), 'success');
+    drush_log(dt('Copied contents of %src_bucket to %dest_bucket', $buckets), 'success');
     return TRUE;
   }
 
