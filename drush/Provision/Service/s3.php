@@ -96,6 +96,10 @@ class Provision_Service_s3 extends Provision_Service {
    */
   function pre_backup() {
     $this->backup_site_bucket();
+    # strip .gz from the backup filename so we operate on clean tarfiles we can append to
+    $backup_file = drush_get_option('backup_file', NULL);
+    drush_set_option('s3_old_backup_file', $backup_file);
+    drush_set_option('backup_file', preg_replace('/\.gz$/', '', $backup_file));
   }
 
   /**
@@ -114,6 +118,29 @@ class Provision_Service_s3 extends Provision_Service {
    * Wrapper around drush_HOOK_post_provision_backup().
    */
   function post_backup() {
+    # XXX: no error checking anywhere here!
+    $backup_file = drush_get_option('backup_file');
+    $old_backup_file = drush_get_option('s3_old_backup_file');
+    $tmpdir = drush_tempdir();
+    # extract the settings file.
+    drush_shell_exec("tar -C '$tmpdir' -x -f '$backup_file' './settings.php'");
+    # sed the bucket name...
+    provision_file()->chmod("$tmpdir/settings.php", 0640);
+    $bucket = drush_get_option('s3_backup_name', FALSE);
+    $lines = "\n";
+    $lines .= "  # backup bucket name override\n";
+    $lines .= "  \$conf['amazons3_bucket'] = '$bucket';\n";
+    file_put_contents("$tmpdir/settings.php", $lines, FILE_APPEND);
+    provision_file()->chmod("$tmpdir/settings.php", 0440);
+    # append the new settings file
+    # we are assuming tarball is not gzipped, because of previous hook
+    drush_shell_exec("tar -C '$tmpdir' -r -f '$backup_file' './settings.php'");
+    # if using gzip
+    if ($backup_file != $old_backup_file) {
+      drush_shell_exec("gzip '$backup_file'");
+      # restore the original filename
+      drush_set_option('backup_file', drush_get_option('s3_old_backup_file'));
+    }
   }
 
   /**
