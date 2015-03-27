@@ -101,8 +101,9 @@ class Provision_Service_s3 extends Provision_Service {
    * Wrapper around drush_HOOK_pre_provision_backup().
    */
   function pre_backup() {
-    $this->backup_site_bucket();
-    $this->override_backup_filename();
+    if ($this->backup_site_bucket()) {
+      $this->override_backup_filename();
+    }
   }
 
   /**
@@ -163,15 +164,24 @@ class Provision_Service_s3 extends Provision_Service {
    */
   function backup_site_bucket() {
     $site_bucket = $this->get_bucket_name();
-    $backup_bucket = $this->suggest_bucket_name();
-    // Save new bucket name to be used in the settings.php packaged in the
-    // backup tarball. See: drupal_config(). This also allows us to pass the
-    // bucket name to the front-end in hosting_s3_post_hosting_backup_task(),
-    // and delete it in pre_backup_rollback().
-    drush_set_option('s3_backup_name', $backup_bucket);
+    $client = $this->client_factory();
+    if ($client->doesBucketExist($site_bucket)) {
+      drush_log(dt('Backing up site bucket (%bucket).'));
+      $backup_bucket = $this->suggest_bucket_name();
+      // Save new bucket name to be used in the settings.php packaged in the
+      // backup tarball. See: drupal_config(). This also allows us to pass the
+      // bucket name to the front-end in hosting_s3_post_hosting_backup_task(),
+      // and delete it in pre_backup_rollback().
+      drush_set_option('s3_backup_name', $backup_bucket);
 
-    if ($this->validate_bucket_name($backup_bucket)) {
-      return $this->copy_bucket($site_bucket, $backup_bucket);
+      if ($this->validate_bucket_name($backup_bucket)) {
+        return $this->copy_bucket($site_bucket, $backup_bucket);
+      }
+    }
+    else {
+      drush_log(dt('Could not backup site bucket (%bucket). Bucket does not exist.',
+        array('%bucket' => $site_bucket)), 'warning');
+      return FALSE;
     }
   }
 
