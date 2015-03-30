@@ -288,18 +288,23 @@ class Provision_Service_s3 extends Provision_Service {
       $bucket = $this->get_bucket_name();
     }
     $client = $this->client_factory();
-    drush_log(dt('Creating S3 bucket `%bucket`.', array('%bucket' => $bucket)));
-    $result = $client->createBucket(array(
-      'Bucket' => $bucket,
-    ));
-    // Wait until the bucket is created.
-    $client->waitUntilBucketExists(array('Bucket' => $bucket));
-    if ($client->doesBucketExist($bucket)) {
-      drush_log(dt('Created S3 bucket `%bucket`.', array('%bucket' => $bucket)), 'success');
-      return $result;
+    if (!$client->doesBucketExist($bucket)) {
+      drush_log(dt('Creating S3 bucket `%bucket`.', array('%bucket' => $bucket)));
+      $result = $client->createBucket(array(
+        'Bucket' => $bucket,
+      ));
+      // Wait until the bucket is created.
+      $client->waitUntilBucketExists(array('Bucket' => $bucket));
+      if ($client->doesBucketExist($bucket)) {
+        drush_log(dt('Created S3 bucket `%bucket`.', array('%bucket' => $bucket)), 'success');
+        return $result;
+      }
+      else {
+        return drush_set_error('ERROR_S3_BUCKET_NOT_CREATED', dt('Could not create S3 bucket `%bucket`.', array('%bucket' => $bucket)));
+      }
     }
     else {
-      return drush_set_error('ERROR_S3_BUCKET_NOT_CREATED', 'Could not create S3 bucket.');
+      return drush_set_error('ERROR_S3_BUCKET_ALREADY_EXISTS', dt('S3 bucket `%bucket` already exists.', array('%bucket' => $bucket)));
     }
   }
 
