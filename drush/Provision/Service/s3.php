@@ -166,7 +166,7 @@ class Provision_Service_s3 extends Provision_Service {
     $site_bucket = $this->get_bucket_name();
     $client = $this->client_factory();
     if ($client->doesBucketExist($site_bucket)) {
-      drush_log(dt('Backing up site bucket (%bucket).'));
+      drush_log(dt('Backing up site bucket (%bucket).', array('%bucket' => $site_bucket)));
       $backup_bucket = $this->suggest_bucket_name();
       // Save new bucket name to be used in the settings.php packaged in the
       // backup tarball. See: drupal_config(). This also allows us to pass the
