@@ -246,9 +246,16 @@ class Provision_Service_s3 extends Provision_Service {
       '%dest_bucket' => $dest_bucket,
     );
 
-    drush_log(dt('Copying site bucket %src_bucket to backup bucket %dest_bucket.', $buckets));
-    $this->create_bucket($dest_bucket);
     $client = $this->client_factory();
+    drush_log(dt('Copying site bucket %src_bucket to backup bucket %dest_bucket.', $buckets));
+    if (!$client->doesBucketExist($dest_bucket)) {
+      $this->create_bucket($dest_bucket);
+    }
+    else {
+      drush_log(dt('S3 bucket `%dest_bucket` already exists. Clearing contents.', $buckets));
+      // TODO: figure out a smarter way of clearing stale contents to avoid excess data transfer.
+      $client->clearBucket($dest_bucket);
+    }
 
     // See: http://stackoverflow.com/questions/21797528/php-how-to-sync-data-between-s3-buckets-using-php-code-without-using-the-cli
     try {
