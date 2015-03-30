@@ -126,10 +126,41 @@ class Provision_Service_s3 extends Provision_Service {
   }
 
   /**
+   * Wrapper around drush_HOOK_pre_provision_restore().
+   */
+  function pre_restore() {
+    if ($restore_bucket = drush_get_option('s3_restore_bucket', FALSE)) {
+      $this->restore_site_bucket($restore_bucket);
+    }
+  }
+
+  /**
+   * Restore a site bucket.
+   */
+  function restore_site_bucket($restore_bucket) {
+    $site_bucket = $this->get_bucket_name();
+    $client = $this->client_factory();
+    if ($client->doesBucketExist($restore_bucket)) {
+      drush_log(dt('Restoring site bucket (%bucket).', array('%bucket' => $restore_bucket)));
+      return $this->copy_bucket($restore_bucket, $site_bucket);
+    }
+    else {
+      drush_log(dt('Could not restore bucket (%bucket). Bucket does not exist.',
+        array('%bucket' => $restore_bucket)), 'warning');
+      return FALSE;
+    }
+  }
+
+  /**
+   * Wrapper around drush_HOOK_post_provision_restore().
+   */
+  function post_restore() {
+  }
+
+  /**
    * Wrapper around drush_HOOK_pre_provision_backup_delete().
    */
   function pre_backup_delete() {
-
   }
 
   /**

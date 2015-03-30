@@ -148,6 +148,16 @@ function drush_provision_s3_post_provision_backup() {
     d()->service('s3')->post_backup();
   }
 }
+function drush_provision_s3_pre_provision_restore() {
+  if (_provision_s3_enabled()) {
+    d()->service('s3')->pre_restore();
+  }
+}
+function drush_provision_s3_post_provision_restore() {
+  if (_provision_s3_enabled()) {
+    d()->service('s3')->post_restore();
+  }
+}
 function drush_provision_s3_pre_provision_backup_delete() {
   if (_provision_s3_enabled()) {
     d()->service('s3')->pre_backup_delete();

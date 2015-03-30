@@ -83,6 +83,12 @@ function drush_hosting_s3_pre_hosting_task() {
     // Pass this to the backend.
     // See: Provision_Service_s3::post_backup_delete().
     $task->options['s3_backups_to_delete'] = $buckets;
+    drush_log(dt('Set buckets to delete to: %bucket', array('%bucket' => implode(',', $buckets))));
+  }
+  if ($task->task_type == 'restore') {
+    $s3_restore_bucket = hosting_s3_load_backup($task->task_args['bid']);
+    $task->options['s3_restore_bucket'] = $s3_restore_bucket;
+    drush_log(dt('Set bucket to restore to: %bucket', array('%bucket' => $s3_restore_bucket)));
   }
 }
 
