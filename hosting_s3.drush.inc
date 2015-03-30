@@ -58,7 +58,9 @@ function hosting_s3_post_hosting_install_task($task, $data) {
 function drush_hosting_s3_post_hosting_task($tid) {
   $task = &drush_get_context('HOSTING_TASK');
   $data = drush_get_context('HOSTING_DRUSH_OUTPUT');
-  if ($task->task_type == 'backup' && isset($data['context']['s3_backup_name'])) {
+  $backup_generating_tasks = array('backup', 'restore', 'clone', 'migrate', 'delete');
+  # TODO: Add a hook to allow other tasks to declare that they generate a backup that should be registered.
+  if (in_array($task->task_type, $backup_generating_tasks) && isset($data['context']['s3_backup_name'])) {
     // Save the backup bucket name associated with the backup ID.
     // See: Provision_Service_s3::pre_backup().
     $bid = hosting_s3_get_latest_site_backup($task->ref->nid);
