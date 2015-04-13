@@ -54,15 +54,14 @@ class Provision_Service_s3 extends Provision_Service {
    * Wrapper around hook_provision_drupal_config().
    */
   function drupal_config($uri, $data) {
-    $access_key_id = d()->s3_access_key_id;
-    $secret_access_key = d()->s3_secret_access_key;
+    $creds = $this->get_credentials();
     $bucket = $this->get_bucket_name();
 
     drush_log('Injecting S3 bucket and credentials into site settings.php');
     $lines = array();
-    $lines[] = "  \$conf['aws_key'] = '$access_key_id';";
-    $lines[] = "  \$conf['aws_secret'] = '$secret_access_key';";
-    $lines[] = "  \$conf['amazons3_bucket'] = '$bucket';";
+    $lines[] = "  \$conf['aws_key'] = '" . $creds['access_key_id'] . "';";
+    $lines[] = "  \$conf['aws_secret'] = '" . $creds['secret_access_key'] . "';";
+    $lines[] = "  \$conf['amazons3_bucket'] = '" . $bucket . "';";
 
     return implode("\n", $lines);
   }
@@ -419,13 +418,19 @@ class Provision_Service_s3 extends Provision_Service {
   function client_factory() {
     static $client = NULL;
     if (is_null($client)) {
-      $access_key_id = d()->s3_access_key_id;
-      $secret_access_key = d()->s3_secret_access_key;
-      if (aegir_s3_credentials_exist($access_key_id, $secret_access_key, array($this, 'handle_missing_keys'))) {
-        $client = aegir_s3_client_factory($access_key_id, $secret_access_key);
+      $creds = $this->get_credentials();
+      if (aegir_s3_credentials_exist($creds['access_key_id'], $creds['secret_access_key'], array($this, 'handle_missing_keys'))) {
+        $client = aegir_s3_client_factory($creds['access_key_id'], $creds['secret_access_key']);
       }
     }
     return $client;
+  }
+
+  function get_credentials() {
+    return array(
+      'access_key_id' => d()->s3_access_key_id,
+      'secret_access_key' => d()->s3_secret_access_key,
+    );
   }
 
   /**
