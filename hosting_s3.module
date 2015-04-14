@@ -118,18 +118,20 @@ function hosting_s3_node_insert($node) {
  * Implements hook_node_update().
  */
 function hosting_s3_node_update($node) {
-  if (FALSE === db_query("SELECT s3_access_key_id FROM {hosting_s3_sites} WHERE vid = :vid", array(':vid' => $node->vid))->fetchField()) {
-    hosting_s3_node_insert($node);
-  }
-  else {
-    db_update('hosting_s3_sites')
-      ->fields(array(
-        's3_access_key_id' => $node->s3_access_key_id,
-        's3_secret_access_key' => $node->s3_secret_access_key,
-        's3_bucket_name' => $node->s3_bucket_name,
-      ))
-      ->condition('vid', $node->vid)
-      ->execute();
+  if ($node->type == 'site') {
+    if (FALSE === db_query("SELECT nid FROM {hosting_s3_sites} WHERE vid = :vid", array(':vid' => $node->vid))->fetchField()) {
+      hosting_s3_node_insert($node);
+    }
+    else {
+      db_update('hosting_s3_sites')
+        ->fields(array(
+          's3_access_key_id' => $node->s3_access_key_id,
+          's3_secret_access_key' => $node->s3_secret_access_key,
+          's3_bucket_name' => $node->s3_bucket_name,
+        ))
+        ->condition('nid', $node->nid)
+        ->execute();
+    }
   }
 }
 
