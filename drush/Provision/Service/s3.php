@@ -164,6 +164,38 @@ class Provision_Service_s3 extends Provision_Service {
     $this->delete_bucket();
   }
 
+  /**
+   * Wrapper around drush_HOOK_provision_deploy_validate().
+   */
+  function deploy_validate() {
+    if ($this->validate_credentials()) {
+      $bucket_name = $this->suggest_bucket_name();
+      if ($this->validate_bucket_name($bucket_name)) {
+        $this->save_bucket_name($bucket_name);
+        $creds = $this->get_credentials();
+        $this->save_credentials($creds['access_key_id'], $creds['secret_access_key']);
+        return TRUE;
+      }
+    }
+    return FALSE;
+  }
+
+  /**
+   * Wrapper around drush_HOOK_pre_provision_deploy().
+   */
+  function pre_deploy() {
+    $this->create_bucket();
+    $this->test_bucket();
+  }
+
+  /**
+   * Wrapper around drush_HOOK_provision_deploy().
+   */
+  function deploy() {
+    if ($bucket = drush_get_option('s3_backup_name', FALSE)) {
+      $this->restore_site_bucket($bucket);
+    }
+  }
 
   /**
    * Helper methods.
