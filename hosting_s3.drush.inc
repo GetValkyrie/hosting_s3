@@ -41,6 +41,7 @@ function hosting_s3_post_hosting_install_task($task, $data) {
   if ($task->ref->type == 'site' && isset($data['context']['s3_bucket_name'])) {
     // Save the generated bucket name in the site node.
     // See: Provision_Service_s3::validate_bucket_name().
+    drush_log('Saving bucket name in the front end.');
     $task->ref->s3_bucket_name = $data['context']['s3_bucket_name'];
   }
 }
