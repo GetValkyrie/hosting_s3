@@ -502,6 +502,21 @@ class Provision_Service_s3 extends Provision_Service {
   }
 
   /**
+   * Save S3 credential to context and pass it back to the front-end.
+   */
+  function save_credentials($access_key_id, $secret_access_key) {
+    // Pass the credentials to the front-end.
+    // See: hosting_s3_post_hosting_import_task().
+    drush_set_option('s3_access_key_id', $access_key_id);
+    drush_set_option('s3_secret_access_key', $secret_access_key);
+    // Save the bucket name to the context.
+    d()->s3_access_key_id = $access_key_id;
+    d()->s3_secret_access_key = $secret_access_key;
+    d()->write_alias();
+    drush_log(dt('Saved S3 credentials to site context.'), 'ok');
+  }
+
+  /**
    * Suggest an available, unique bucket name based on a site's URL.
    */
   function suggest_bucket_name() {
