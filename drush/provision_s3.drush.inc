@@ -113,6 +113,26 @@ function drush_provision_s3_post_provision_verify() {
     d()->service('s3')->post_verify();
   }
 }
+function drush_provision_s3_provision_deploy_validate() {
+  if (_provision_s3_enabled()) {
+    d()->service('s3')->deploy_validate();
+  }
+}
+function drush_provision_s3_pre_provision_deploy() {
+  if (_provision_s3_enabled()) {
+    d()->service('s3')->pre_deploy();
+  }
+}
+function drush_provision_s3_provision_deploy() {
+  if (_provision_s3_enabled()) {
+    d()->service('s3')->deploy();
+  }
+}
+function drush_provision_s3_post_provision_deploy() {
+  if (_provision_s3_enabled()) {
+    d()->service('s3')->post_deploy();
+  }
+}
 function drush_provision_s3_pre_provision_migrate() {
   if (_provision_s3_enabled()) {
     d()->service('s3')->pre_migrate();
