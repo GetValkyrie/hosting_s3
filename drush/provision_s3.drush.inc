@@ -76,6 +76,15 @@ function provision_s3_provision_drupal_config($uri, $data) {
   }
 }
 
+/**
+ * Implements hook_provision_deploy_options_alter().
+ */
+function provision_s3_provision_deploy_options_alter(&$deploy_options, $context) {
+  if (_provision_s3_enabled()) {
+    return d()->service('s3')->deploy_options_alter($deploy_options, $context);
+  }
+}
+
 // Allow s3 services to respond to normal provision events.
 
 function drush_provision_s3_provision_install_validate() {

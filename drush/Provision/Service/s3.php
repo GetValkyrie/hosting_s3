@@ -198,6 +198,17 @@ class Provision_Service_s3 extends Provision_Service {
   }
 
   /**
+   * Wrapper around hook_provision_deploy_options_alter().
+   */
+  function deploy_options_alter(&$deploy_options, $context) {
+    // Inject the backup bucket name during the 'clone' task, so that it is
+    // available in deploy().
+    if ($bucket = drush_get_option('s3_backup_name', FALSE)) {
+      $deploy_options['s3_backup_name'] = $bucket;
+    }
+  }
+
+  /**
    * Helper methods.
    */
 
