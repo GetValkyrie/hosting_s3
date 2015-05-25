@@ -29,6 +29,7 @@ class Provision_Service_s3 extends Provision_Service {
     // Create sites/$url and ensure permissions are set (remove from $dirs).
     // This helper can be called optionally to ensure that the site directory
     // is created appropriately before applying other modifications.
+/*
     $path = 'sites/' . $url;
     if (!is_dir($path)) {
       provision_file()->mkdir($path)
@@ -40,6 +41,7 @@ class Provision_Service_s3 extends Provision_Service {
       ->succeed('Changed permissions of <code>@path</code> to @perm')
       ->fail('Could not change permissions <code>@path</code> to @perm');
     unset($dirs[$path]);
+*/
   }
 
   /**
@@ -59,8 +61,8 @@ class Provision_Service_s3 extends Provision_Service {
 
     drush_log('Injecting S3 bucket and credentials into site settings.php');
     $lines = array();
-    $lines[] = "  \$conf['aws_key'] = '" . $creds['access_key_id'] . "';";
-    $lines[] = "  \$conf['aws_secret'] = '" . $creds['secret_access_key'] . "';";
+    $lines[] = "  \$conf['amazons3_key'] = '" . $creds['access_key_id'] . "';";
+    $lines[] = "  \$conf['amazons3_secret'] = '" . $creds['secret_access_key'] . "';";
     $lines[] = "  \$conf['amazons3_bucket'] = '" . $bucket . "';";
 
     return implode("\n", $lines);
