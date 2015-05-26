@@ -51,6 +51,10 @@ class Provision_Service_s3 extends Provision_Service {
     $lines[] = "  \$conf['amazons3_key'] = '" . $creds['access_key_id'] . "';";
     $lines[] = "  \$conf['amazons3_secret'] = '" . $creds['secret_access_key'] . "';";
     $lines[] = "  \$conf['amazons3_bucket'] = '" . $bucket . "';";
+    drush_log('Overriding file URI scheme in field definitions.');
+    $lines[] = "  \$conf['amazons3_file_uri_scheme_override'] = 's3';";
+    drush_log('Setting default file URI scheme to S3.');
+    $lines[] = "  \$conf['file_default_scheme'] = 's3';";
 
     return implode("\n", $lines);
   }
