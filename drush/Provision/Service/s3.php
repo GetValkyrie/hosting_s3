@@ -48,13 +48,16 @@ class Provision_Service_s3 extends Provision_Service {
 
     drush_log('Injecting S3 bucket and credentials into site settings.php');
     $lines = array();
+    $lines[] = "  # Config for amazons3.module";
     $lines[] = "  \$conf['amazons3_key'] = '" . $creds['access_key_id'] . "';";
     $lines[] = "  \$conf['amazons3_secret'] = '" . $creds['secret_access_key'] . "';";
     $lines[] = "  \$conf['amazons3_bucket'] = '" . $bucket . "';";
-    drush_log('Overriding file URI scheme in field definitions.');
     $lines[] = "  \$conf['amazons3_file_uri_scheme_override'] = 's3';";
-    drush_log('Setting default file URI scheme to S3.');
-    $lines[] = "  \$conf['file_default_scheme'] = 's3';";
+    $lines[] = "  # Config for s3fs.module";
+    $lines[] = "  \$conf['awssdk2_access_key'] = '" . $creds['access_key_id'] . "';";
+    $lines[] = "  \$conf['awssdk2_secret_key'] = '" . $creds['secret_access_key'] . "';";
+    $lines[] = "  \$conf['s3fs_bucket'] = '" . $bucket . "';";
+    $lines[] = "  \$conf['s3fs_file_uri_scheme_override'] = 's3';";
 
     return implode("\n", $lines);
   }
