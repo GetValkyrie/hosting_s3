@@ -501,7 +501,7 @@ class Provision_Service_s3 extends Provision_Service {
    * Error handler for API exceptions.
    */
   function handle_exception($exception, $message = 'There was an error in a request to S3.') {
-    $code = $exception->getExceptionCode();
+    $code = $exception->getCode();
     $message= $exception->getMessage();
     $error = array();
     $error[] = $message;
