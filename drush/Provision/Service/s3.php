@@ -309,20 +309,57 @@ class Provision_Service_s3 extends Provision_Service {
     }
 
     // See: http://stackoverflow.com/questions/21797528/php-how-to-sync-data-between-s3-buckets-using-php-code-without-using-the-cli
-    try {
-      $client->registerStreamWrapper();
-    } catch (Exception $e) {
-      return $this->handle_exception($e, dt('Could not register S3 stream wrapper.'));
-    }
+    #try {
+    #  $client->registerStreamWrapper();
+    #} catch (Exception $e) {
+    #  return $this->handle_exception($e, dt('Could not register S3 stream wrapper.'));
+    #}
     drush_log(dt('Copying site bucket %src_bucket to backup bucket %dest_bucket.', $buckets));
     try {
-      $client->uploadDirectory("s3://$src_bucket", $dest_bucket);
-    } catch (Exception $e) {
+      $successful = $this->syncBuckets($src_bucket, $dest_bucket, $client);
+      $failed = array();
+    } catch (\Guzzle\Service\Exception\CommandTransferException $e) {
+      $successful = $e->getSuccessfulCommands();
+      $failed = $e->getFailedCommands();
       return $this->handle_exception($e, dt('Could not copy contents of %src_bucket to %dest_bucket', $buckets));
     }
 
     drush_log(dt('Copied contents of %src_bucket to %dest_bucket', $buckets), 'success');
     return TRUE;
+  }
+
+  function syncBuckets($src_bucket, $dest_bucket, $client = NULL) {
+    // List all src bucket objects
+    $iterator = $client->getIterator('ListObjects', array(
+      'Bucket' => $src_bucket
+    ));
+    // Perform a batch of CopyObject operations.
+    $batch = array();
+    $success = TRUE;
+    $max = 1000; $i = 0;
+    foreach ($iterator as $object) {
+      $batch[] = $client->getCommand('CopyObject', array(
+        'Bucket'     => $dest_bucket,
+        'Key'        => $object['Key'],
+        // XXX: shouldn't there be a leading slash here? there's one in the REST docs? nope.
+        'CopySource' => urlencode($src_bucket . '/' . $object['Key']),
+      ));
+      #drush_log("adding object {$object['Key']} from $src_bucket/{$object['Key']} to $dest_bucket", 'debug');
+      // every $max objects, commit the batch
+      if ((++$i % $max) == 0) {
+        // XXX: not sure what the return value is, assuming it's a bool?
+        $success &= $client->execute($batch);
+        drush_log("Copied $i objects.");
+        $batch = array();
+      }
+    }
+    // Process the remaining objects.
+    if (!empty($batch)) {
+      $success &= $client->execute($batch);
+      drush_log("Copied $i objects.");
+    }
+    return $success;
+    // ensure they're publicly available, as the acl appears to get reset... to investigate
   }
 
   /**
