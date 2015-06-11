@@ -299,7 +299,6 @@ class Provision_Service_s3 extends Provision_Service {
     );
 
     $client = $this->client_factory();
-    drush_log(dt('Copying site bucket %src_bucket to backup bucket %dest_bucket.', $buckets));
     if (!$client->doesBucketExist($dest_bucket)) {
       $this->create_bucket($dest_bucket);
     }
@@ -315,6 +314,7 @@ class Provision_Service_s3 extends Provision_Service {
     } catch (Exception $e) {
       return $this->handle_exception($e, dt('Could not register S3 stream wrapper.'));
     }
+    drush_log(dt('Copying site bucket %src_bucket to backup bucket %dest_bucket.', $buckets));
     try {
       $client->uploadDirectory("s3://$src_bucket", $dest_bucket);
     } catch (Exception $e) {
