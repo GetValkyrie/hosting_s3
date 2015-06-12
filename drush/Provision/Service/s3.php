@@ -308,24 +308,45 @@ class Provision_Service_s3 extends Provision_Service {
       $client->clearBucket($dest_bucket);
     }
 
-    // See: http://stackoverflow.com/questions/21797528/php-how-to-sync-data-between-s3-buckets-using-php-code-without-using-the-cli
-    #try {
-    #  $client->registerStreamWrapper();
-    #} catch (Exception $e) {
-    #  return $this->handle_exception($e, dt('Could not register S3 stream wrapper.'));
-    #}
     drush_log(dt('Copying site bucket %src_bucket to backup bucket %dest_bucket.', $buckets));
-    try {
-      $successful = $this->syncBuckets($src_bucket, $dest_bucket, $client);
-      $failed = array();
-    } catch (\Guzzle\Service\Exception\CommandTransferException $e) {
-      $successful = $e->getSuccessfulCommands();
-      $failed = $e->getFailedCommands();
-      return $this->handle_exception($e, dt('Could not copy contents of %src_bucket to %dest_bucket', $buckets));
+    # We fork here because PHP leaks FDs like a sieve.
+    # See https://www.drupal.org/node/1427428 and so on.
+    $pid = pcntl_fork();
+    if ($pid == -1) {
+      return drush_set_error('cannot fork. boom');
     }
-
-    drush_log(dt('Copied contents of %src_bucket to %dest_bucket', $buckets), 'success');
-    return TRUE;
+    elseif ($pid) { // Parent process.
+      pcntl_waitpid($pid, $status); // Wait for subprocess to complete.
+      // Check if the child succeeded.
+      if (pcntl_wifexited($status) && pcntl_wexitstatus($status) == 0) {
+        drush_log(dt('Copied contents of %src_bucket to %dest_bucket', $buckets), 'success');
+        return TRUE;
+      }
+      else {
+        drush_log('Failed to fork to copy buckets');
+        return FALSE;
+      }
+    }
+    else { // Child process.
+      // The idea here is that we fork in this subprocess to ensure we don't
+      // use up all the file descriptors. We use the subprocess exit code, that
+      // is found by the parent (above) to signal the return value.
+      $status = TRUE;
+      try {
+        $successful = $this->syncBuckets($src_bucket, $dest_bucket, $client);
+        $failed = array();
+        drush_get_context('DRUSH_EXECUTION_COMPLETED', TRUE);
+        fclose(STDIN);
+        fclose(STDOUT);
+        fclose(STDERR);
+      } catch (\Guzzle\Service\Exception\CommandTransferException $e) {
+        $successful = $e->getSuccessfulCommands();
+        $failed = $e->getFailedCommands();
+        $this->handle_exception($e, dt('Could not copy contents of %src_bucket to %dest_bucket', $buckets));
+        $status = FALSE;
+      }
+      exit($status);
+    }
   }
 
   function syncBuckets($src_bucket, $dest_bucket, $client = NULL) {
@@ -479,6 +500,7 @@ class Provision_Service_s3 extends Provision_Service {
     $client = $this->client_factory();
     if ($client->doesBucketExist($restore_bucket)) {
       drush_log(dt('Restoring site bucket (%bucket).', array('%bucket' => $restore_bucket)));
+
       return $this->copy_bucket($restore_bucket, $site_bucket);
     }
     else {
