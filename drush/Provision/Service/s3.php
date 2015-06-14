@@ -364,6 +364,8 @@ class Provision_Service_s3 extends Provision_Service {
         'Key'        => $object['Key'],
         // XXX: shouldn't there be a leading slash here? there's one in the REST docs? nope.
         'CopySource' => urlencode($src_bucket . '/' . $object['Key']),
+        // Ensure they're publicly available, as the acl gets reset to private.
+        'ACL'        => 'public-read',
       ));
       #drush_log("adding object {$object['Key']} from $src_bucket/{$object['Key']} to $dest_bucket", 'debug');
       // every $max objects, commit the batch
@@ -380,7 +382,6 @@ class Provision_Service_s3 extends Provision_Service {
       drush_log("Copied $i objects.");
     }
     return $success;
-    // ensure they're publicly available, as the acl appears to get reset... to investigate
   }
 
   /**
