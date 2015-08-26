@@ -31,29 +31,17 @@ function hosting_s3_client_creds_form_alter(&$form, $form_state, $form_id) {
   elseif ($form_id == 'site_node_form') {
     $new_site = (bool) is_null($form['nid']['#value']);
     if ($new_site) {
-      // We specify each element separately so as not to overwrite existing entries.
-      $form['s3']['inherit_creds']['#type'] = 'radios';
-      $form['s3']['inherit_creds']['#title'] = t('Source for S3 credentials.');
-      $form['s3']['inherit_creds']['#default_value'] = 'client';
-      $form['s3']['inherit_creds']['#options']['none'] = 'Use the credentials above';
       $form['s3']['inherit_creds']['#options']['client'] = 'Use the credentials from this site\'s client account';
-      $form['s3']['s3_access_key_id']['#disabled'] = TRUE;
-      $form['s3']['s3_access_key_id']['#states']['enabled'][':input[name="inherit_creds"]'] = array(
-        'value' => 'none',
-      );
-      $form['s3']['s3_secret_access_key']['#disabled'] = TRUE;
-      $form['s3']['s3_secret_access_key']['#states']['enabled'][':input[name="inherit_creds"]'] = array(
-        'value' => 'none',
-      );
+      // Insert our validation function before the general S3 one. This allows
+      // us to inject the client's credentials before they are checked for
+      // validity.
       $position = array_search('hosting_s3_validate_credentials', $form['#validate']);
       $form['#validate'] = array_slice($form['#validate'], 0, $position, true) +
         array('client_creds' => 'hosting_s3_validate_inherit_client_credentials') +
         array_slice($form['#validate'], $position, count($form['#validate'])-$position, true);
     }
   }
-
   return $form;
-
 }
 
 /**

@@ -11,20 +11,7 @@ function hosting_s3_user_creds_form_alter(&$form, $form_state, $form_id) {
   if ($form_id == 'site_node_form') {
     $new_site = (bool) is_null($form['nid']['#value']);
     if ($new_site) {
-      // We specify each element separately so as not to overwrite existing entries.
-      $form['s3']['inherit_creds']['#type'] = 'radios';
-      $form['s3']['inherit_creds']['#title'] = t('Source for S3 credentials.');
-      $form['s3']['inherit_creds']['#default_value'] = 'none';
-      $form['s3']['inherit_creds']['#options']['none'] = 'Use the credentials above';
       $form['s3']['inherit_creds']['#options']['user'] = 'Use credentials from your user account';
-      $form['s3']['s3_access_key_id']['#disabled'] = TRUE;
-      $form['s3']['s3_access_key_id']['#states']['enabled'][':input[name="inherit_creds"]'] = array(
-        'value' => 'none',
-      );
-      $form['s3']['s3_secret_access_key']['#disabled'] = TRUE;
-      $form['s3']['s3_secret_access_key']['#states']['enabled'][':input[name="inherit_creds"]'] = array(
-        'value' => 'none',
-      );
       // Run our validate hook first, so we can populate the inherited values,
       // or throw an error, if they aren't set.
       $position = array_search('hosting_s3_validate_credentials', $form['#validate']);
@@ -54,7 +41,6 @@ function hosting_s3_user_creds_form_alter(&$form, $form_state, $form_id) {
     $form['#validate'][] = 'hosting_s3_validate_credentials';
   }
   return $form;
-
 }
 
 /**

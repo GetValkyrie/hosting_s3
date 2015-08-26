@@ -12,35 +12,59 @@ require_once dirname(__FILE__) . '/includes/s3_common.inc';
 function hosting_s3_form_alter(&$form, $form_state, $form_id) {
   if ($form_id == 'site_node_form') {
     $new_site = (bool) is_null($form['nid']['#value']);
-    $read_only = !$new_site;
 
     if (!$new_site) {
-      $form['info']['S3 bucket_name'] = array(
-        '#type' => 'item',
-        '#disabled' => TRUE,
-        '#title' => t('S3 bucket name'),
-        '#markup' => !empty($form['#node']->s3_bucket_name) ? $form['#node']->s3_bucket_name : 'none',
+      if (!empty($form['#node']->s3_bucket_name)) {
+        $form['info']['S3 bucket_name'] = array(
+          '#type' => 'item',
+          '#disabled' => TRUE,
+          '#title' => t('S3 bucket name'),
+          '#markup' => $form['#node']->s3_bucket_name,
+        );
+      }
+      if (!empty($form['#node']->s3_access_key_id)) {
+        $form['info']['s3_access_key_id'] = array(
+          '#type' => 'item',
+          '#disabled' => TRUE,
+          '#title' => t('S3 access key ID'),
+          '#markup' => $form['#node']->s3_access_key_id,
+        );
+      }
+    }
+    else {
+      $form['s3'] = array(
+        '#type' => 'fieldset',
+        '#title' => t('S3 credentials'),
+        '#description' => t('Credentials for access to create and manage an S3 bucket for this site.'),
+      );
+      $form['s3']['inherit_creds'] = array(
+        '#type' => 'radios',
+        '#title' => t('Source for S3 credentials.'),
+        '#default_value' => 'none',
+        '#options' => array(
+          'none' => 'Do not use S3 on this site',
+          'form' => 'Use site-specific credentials (below)',
+        ),
+      );
+      $form['s3']['s3_access_key_id'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Access key ID'),
+        '#attributes' => array('autocomplete' => 'off'),
+        '#states' => array(
+          'visible' => array(':input[name="inherit_creds"]' => array('value' => 'form')),
+          'enabled' => array(':input[name="inherit_creds"]' => array('value' => 'form')),
+        ),
+      );
+      $form['s3']['s3_secret_access_key'] = array(
+        '#type' => 'password',
+        '#title' => t('Secret access key'),
+        '#attributes' => array('autocomplete' => 'off'),
+        '#states' => array(
+          'visible' => array(':input[name="inherit_creds"]' => array('value' => 'form')),
+          'enabled' => array(':input[name="inherit_creds"]' => array('value' => 'form')),
+        ),
       );
     }
-    $form['s3'] = array(
-      '#type' => 'fieldset',
-      '#title' => t('S3 credentials'),
-      '#description' => t('Credentials for access to create and manage an S3 bucket for this site.'),
-    );
-    $form['s3']['s3_access_key_id'] = array(
-      '#type' => 'textfield',
-      '#disabled' => $read_only,
-      '#title' => t('Access key ID'),
-      '#attributes' => array('autocomplete' => 'off'),
-      '#default_value' => isset($form['#node']->s3_access_key_id) ? $form['#node']->s3_access_key_id : '',
-    );
-    $form['s3']['s3_secret_access_key'] = array(
-      '#type' => 'password',
-      '#disabled' => $read_only,
-      '#title' => t('Secret access key'),
-      '#attributes' => array('autocomplete' => 'off'),
-      '#default_value' => isset($form['#node']->s3_secret_access_key) ? $form['#node']->s3_secret_access_key : '',
-    );
 
     $form['#validate'][] = 'hosting_s3_validate_credentials';
 
