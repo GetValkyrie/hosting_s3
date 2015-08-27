@@ -461,12 +461,13 @@ class Provision_Service_s3 extends Provision_Service {
   /**
    * Delete a bucket.
    */
-  function delete_bucket($bucket = NULL) {
+  function delete_bucket($bucket = NULL, $client = NULL) {
     if (is_null($bucket)) {
       $bucket = $this->get_bucket_name();
     }
-    $client = $this->client_factory();
-
+    if (is_null($client)) {
+      $client = $this->client_factory();
+    }
     if ($client->doesBucketExist($bucket)) {
       drush_log(dt('Deleting bucket `%bucket`.', array('%bucket' => $bucket)));
 

@@ -6,6 +6,92 @@
  */
 
 /**
+ * Implements hook_drush_command().
+ */
+function hosting_s3_drush_command() {
+  $items['s3-delete-bucket'] = array(
+    'description' => dt('Delete an S3 bucket.'),
+    'arguments' => array(
+      'bucket_name' => 'The name of the bucket to delete.',
+    ),
+    'options' => array(
+      'access-key' => 'The AWS IAM access key ID to use when deleting a bucket that is not assocated to a site or backup.',
+      'secret-key' => 'The AWS IAM secret access key to use when deleting a bucket that is not assocated to a site or backup.',
+      'force' => 'Override checks to ensure buckets in use or tied to a backup are not accidentally deleted.',
+    ),
+    'allow-additional-options' => TRUE,
+    'bootstrap' => DRUSH_BOOTSTRAP_FULL,
+  );
+
+  return $items;
+}
+
+/**
+ * Command callback for the 'drush s3_delete_bucket' command.
+ */
+function drush_hosting_s3_delete_bucket($bucket_name) {
+  // Check if this bucket is associated to a backup
+  $sql = "SELECT bid FROM {hosting_s3_backups} WHERE bucket=:bucket_name";
+  $result = db_query($sql, array(':bucket_name' => $bucket_name))->fetch();
+  if (isset($result->bid)) {
+    if (!drush_get_option('force', FALSE)) {
+      return drush_set_error('HOSTING_S3_BUCKET_IN_USE', dt('Bucket is associated with a backup. Use \'--force\' to delete the bucket anyway.'));
+    }
+    else {
+      $backup = hosting_site_get_backup($result->bid);
+      // NOTE: If the site associated to a backup was deleted, the returned
+      // site alias will be '@'.
+      $site_alias = hosting_context_name($backup['site']);
+    }
+  }
+  // Check if this bucket is used on a site
+  $sql = "SELECT nid FROM {hosting_s3_sites} WHERE s3_bucket_name=:bucket_name";
+  $result = db_query($sql, array(':bucket_name' => $bucket_name))->fetch();
+  if (isset($result->nid)) {  
+    if (!drush_get_option('force', FALSE)) {
+      return drush_set_error('HOSTING_S3_BUCKET_IN_USE', dt('Bucket is associated with a site. Use \'--force\' to delete the bucket anyway.'));
+    }
+    else {
+      $site_node = node_load($result->nid);
+      $site_alias = hosting_context_name($site_node->nid);
+    }
+  }
+
+  // Check that we're deleting a site bucket, or a backup bucket associated to
+  // a site that still exists. If the site was deleted, or this bucket was
+  // never associated to a site or backup, then we cannot load the site alias
+  // to retrieve the credentials. So, we prompt for them below.
+  if (isset($site_alias) && $site_alias != '@') {
+    // Switch to site context.
+    d($site_alias, TRUE);
+    // Delete the bucket, credentials will be loaded from the associated site.
+    d()->service('s3')->delete_bucket($bucket_name);
+    if (isset($site_node)) {
+      // Delete the associated entry in the hosting_s3_sites db table.
+      hosting_s3_node_delete($site_node);
+    }
+    if (isset($backup)) {
+      // Delete the associated entry in the hosting_s3_backups db table.
+      hosting_s3_delete_backup($backup['bid']);
+      // TODO: Should we delete the backup entirely? It won't be able to be restored properly...
+    }
+  }
+  else {
+    // Gather the credentials from command-line options.
+    $access_key_id = drush_get_option('access-key', FALSE);
+    $secret_access_key = drush_get_option('secret-key', FALSE);
+    if ($access_key_id && $secret_access_key) {
+      $client = aegir_s3_client_factory($access_key_id, $secret_access_key);
+      Provision_Service_s3::delete_bucket($bucket_name, $client);
+    }
+    else {
+      drush_set_error('HOSTING_S3_MISSING_CREDENTIALS', dt('When the bucket to delete is not associated with a site, both \'--access-key\' and \'--secret-key\' options must be provided.'));
+    }
+  }
+
+}
+
+/**
  * Implements hook_hosting_site_context_options().
  */
 function hosting_s3_hosting_site_context_options(&$task) {
