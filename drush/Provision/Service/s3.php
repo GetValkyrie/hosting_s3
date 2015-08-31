@@ -370,7 +370,7 @@ class Provision_Service_s3 extends Provision_Service {
       '%dest_bucket' => $dest_bucket,
     );
 
-    $client = $this->client_factory();
+    $client = is_null($client) ? $this->clientFactory() : $client;
     if (!$client->doesBucketExist($dest_bucket)) {
       $this->createBucket($dest_bucket);
     }
@@ -467,6 +467,7 @@ class Provision_Service_s3 extends Provision_Service {
    * Actually do the copy of contents of buckets.
    */
   function syncBuckets($src_bucket, $dest_bucket, $client = NULL) {
+    $client = is_null($client) ? $this->clientFactory() : $client;
     // List all src bucket objects
     $iterator = $client->getIterator('ListObjects', array(
       'Bucket' => $src_bucket
