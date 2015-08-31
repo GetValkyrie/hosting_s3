@@ -414,7 +414,7 @@ class Provision_Service_s3 extends Provision_Service {
       } catch (\Guzzle\Service\Exception\CommandTransferException $e) {
         $successful = $e->getSuccessfulCommands();
         $failed = $e->getFailedCommands();
-        $this->handle_exception($e, dt('Could not copy contents of %src_bucket to %dest_bucket', $buckets));
+        $this->handleException($e, dt('Could not copy contents of %src_bucket to %dest_bucket', $buckets));
         $status = FALSE;
       }
       exit($status);
