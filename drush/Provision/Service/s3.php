@@ -518,7 +518,7 @@ class Provision_Service_s3 extends Provision_Service {
     if (is_null($client)) {
       $creds = $this->getCredentials();
       if (aegir_s3_credentials_exist($creds['access_key_id'], $creds['secret_access_key'], array($this, 'handleMissingKeys'))) {
-        $client = aegir_s3_clientFactory($creds['access_key_id'], $creds['secret_access_key']);
+        $client = aegir_s3_client_factory($creds['access_key_id'], $creds['secret_access_key']);
       }
     }
     return $client;
@@ -535,7 +535,7 @@ class Provision_Service_s3 extends Provision_Service {
    * Ensure provided credentials are complete and valid.
    */
   function validateCredentials() {
-    return aegir_s3_validateCredentials($this->clientFactory(), array($this, 'handleValidation'), array($this, 'handleException'));
+    return aegir_s3_validate_credentials($this->clientFactory(), array($this, 'handleValidation'), array($this, 'handleException'));
   }
 
   /**

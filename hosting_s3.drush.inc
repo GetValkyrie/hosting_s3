@@ -61,7 +61,7 @@ function drush_hosting_s3_delete_bucket($bucket_name) {
   // a site that still exists. If the site was deleted, or this bucket was
   // never associated to a site or backup, then we cannot load the site alias
   // to retrieve the credentials. So, we prompt for them below.
-  if (isset($site_alias) && $site_alias != '@') {
+  if (isset($site_alias) && !empty($site_alias) && $site_alias != '@') {
     // Switch to site context.
     d($site_alias, TRUE);
     // Delete the bucket, credentials will be loaded from the associated site.
