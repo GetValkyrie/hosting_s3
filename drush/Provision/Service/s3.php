@@ -43,8 +43,8 @@ class Provision_Service_s3 extends Provision_Service {
    * Wrapper around hook_provision_drupal_config().
    */
   function drupal_config($uri, $data) {
-    $creds = $this->get_credentials();
-    $bucket = $this->get_bucket_name();
+    $creds = $this->getCredentials();
+    $bucket = $this->getBucketName();
 
     drush_log('Injecting S3 bucket and credentials into site settings.php');
     $lines = array();
@@ -67,10 +67,10 @@ class Provision_Service_s3 extends Provision_Service {
    * Wrapper around drush_HOOK_provision_install_validate().
    */
   function install_validate() {
-    if ($this->validate_credentials()) {
-      $bucket_name = $this->suggest_bucket_name();
-      if ($this->validate_bucket_name($bucket_name)) {
-        $this->save_bucket_name($bucket_name);
+    if ($this->validateCredentials()) {
+      $bucket_name = $this->suggestBucketName();
+      if ($this->validateBucketName($bucket_name)) {
+        $this->saveBucketName($bucket_name);
         return TRUE;
       }
     }
@@ -82,23 +82,23 @@ class Provision_Service_s3 extends Provision_Service {
    */
   function pre_install() {
     $this->createBucket();
-    $this->test_bucket();
+    $this->testBucket();
   }
 
   /**
    * Wrapper around drush_HOOK_pre_provision_verify().
    */
   function pre_verify() {
-    $this->validate_credentials();
-    $this->test_bucket();
+    $this->validateCredentials();
+    $this->testBucket();
   }
 
   /**
    * Wrapper around drush_HOOK_pre_provision_backup().
    */
   function pre_backup() {
-    if ($this->backup_site_bucket()) {
-      $this->override_backup_filename();
+    if ($this->backupSiteBucket()) {
+      $this->overrideBackupFilename();
     }
   }
 
@@ -107,7 +107,7 @@ class Provision_Service_s3 extends Provision_Service {
    */
   function pre_backup_rollback() {
     if ($bucket = drush_get_option('s3_backup_name', FALSE)) {
-      $this->delete_bucket($bucket);
+      $this->deleteBucket($bucket);
     }
     else {
       drush_log("'s3_backup_name' option not set.",'warning');
@@ -118,7 +118,7 @@ class Provision_Service_s3 extends Provision_Service {
    * Wrapper around drush_HOOK_post_provision_backup().
    */
   function post_backup() {
-    $this->inject_backup_settings();
+    $this->injectBackupSettings();
   }
 
   /**
@@ -126,7 +126,7 @@ class Provision_Service_s3 extends Provision_Service {
    */
   function pre_restore() {
     if ($restore_bucket = drush_get_option('s3_restore_bucket', FALSE)) {
-      $this->restore_site_bucket($restore_bucket);
+      $this->restoreSiteBucket($restore_bucket);
     }
   }
 
@@ -148,7 +148,7 @@ class Provision_Service_s3 extends Provision_Service {
   function post_backup_delete() {
     $backups = drush_get_option('s3_backups_to_delete', array());
     foreach ($backups as $backup) {
-      $this->delete_bucket($backup);
+      $this->deleteBucket($backup);
     }
   }
 
@@ -158,19 +158,19 @@ class Provision_Service_s3 extends Provision_Service {
   function pre_delete() {
     // TODO: We usually take a site backup prior to deletion.
     // Should we sync the bucket locally for such a backup?
-    $this->delete_bucket();
+    $this->deleteBucket();
   }
 
   /**
    * Wrapper around drush_HOOK_provision_deploy_validate().
    */
   function deploy_validate() {
-    if ($this->validate_credentials()) {
-      $bucket_name = $this->suggest_bucket_name();
-      if ($this->validate_bucket_name($bucket_name)) {
-        $this->save_bucket_name($bucket_name);
-        $creds = $this->get_credentials();
-        $this->save_credentials($creds['access_key_id'], $creds['secret_access_key']);
+    if ($this->validateCredentials()) {
+      $bucket_name = $this->suggestBucketName();
+      if ($this->validateBucketName($bucket_name)) {
+        $this->saveBucketName($bucket_name);
+        $creds = $this->getCredentials();
+        $this->saveCredentials($creds['access_key_id'], $creds['secret_access_key']);
         return TRUE;
       }
     }
@@ -182,7 +182,7 @@ class Provision_Service_s3 extends Provision_Service {
    */
   function pre_deploy() {
     $this->createBucket();
-    $this->test_bucket();
+    $this->testBucket();
   }
 
   /**
@@ -190,7 +190,7 @@ class Provision_Service_s3 extends Provision_Service {
    */
   function deploy() {
     if ($bucket = drush_get_option('s3_backup_name', FALSE)) {
-      $this->restore_site_bucket($bucket);
+      $this->restoreSiteBucket($bucket);
     }
   }
 
@@ -215,19 +215,19 @@ class Provision_Service_s3 extends Provision_Service {
    * @return
    *   The generated name of the backup bucket.
    */
-  function backup_site_bucket() {
-    $site_bucket = $this->get_bucket_name();
-    $client = $this->client_factory();
+  function backupSiteBucket() {
+    $site_bucket = $this->getBucketName();
+    $client = $this->clientFactory();
     if ($client->doesBucketExist($site_bucket)) {
       drush_log(dt('Backing up site bucket (%bucket).', array('%bucket' => $site_bucket)));
-      $backup_bucket = $this->suggest_bucket_name();
+      $backup_bucket = $this->suggestBucketName();
       // Save new bucket name to be used in the settings.php packaged in the
       // backup tarball. See: drupal_config(). This also allows us to pass the
       // bucket name to the front-end in hosting_s3_post_hosting_backup_task(),
       // and delete it in pre_backup_rollback().
       drush_set_option('s3_backup_name', $backup_bucket);
 
-      if ($this->validate_bucket_name($backup_bucket)) {
+      if ($this->validateBucketName($backup_bucket)) {
         return $this->copyBucket($site_bucket, $backup_bucket);
       }
     }
@@ -241,7 +241,7 @@ class Provision_Service_s3 extends Provision_Service {
   /**
    * Inject backup bucket name into settings.php packaged with backup.
    */
-  function inject_backup_settings() {
+  function injectBackupSettings() {
     $orig_backup_file = drush_get_option('s3_orig_backup_file', FALSE);
     $bucket = drush_get_option('s3_backup_name', FALSE);
     if ($orig_backup_file && $bucket) {
@@ -283,7 +283,7 @@ class Provision_Service_s3 extends Provision_Service {
    * directly. This, in turn, allows us to append the backup bucket name to
    * the settings.php that is packaged with the backup. See: post_backup().
    */
-  function override_backup_filename() {
+  function overrideBackupFilename() {
     drush_log('Overriding backup filename to block gzipping.');
     $backup_file = drush_get_option('backup_file', NULL);
     drush_set_option('s3_orig_backup_file', $backup_file);
@@ -386,7 +386,7 @@ class Provision_Service_s3 extends Provision_Service {
   /**
    * Return the bucket name from the site context.
    */
-  function get_bucket_name() {
+  function getBucketName() {
     return d()->s3_bucket_name;
   }
 
@@ -394,8 +394,8 @@ class Provision_Service_s3 extends Provision_Service {
    * Create an S3 bucket.
    */
   function createBucket($bucket = NULL, $client = NULL) {
-    $bucket = is_null($bucket) ? $this->get_bucket_name() : $bucket;
-    $client = is_null($client) ? $this->client_factory() : $client;
+    $bucket = is_null($bucket) ? $this->getBucketName() : $bucket;
+    $client = is_null($client) ? $this->clientFactory() : $client;
 
     if (!$client->doesBucketExist($bucket)) {
       drush_log(dt('Creating S3 bucket `%bucket`.', array('%bucket' => $bucket)));
@@ -420,9 +420,9 @@ class Provision_Service_s3 extends Provision_Service {
   /**
    * Ensure we can create and delete objects in bucket.
    */
-  function test_bucket() {
-    $bucket = $this->get_bucket_name();
-    $client = $this->client_factory();
+  function testBucket() {
+    $bucket = $this->getBucketName();
+    $client = $this->clientFactory();
 
     // Generate unique test filename and content.
     $test_key = uniqid("hosting_s3-test-key-", true);
@@ -460,12 +460,12 @@ class Provision_Service_s3 extends Provision_Service {
   /**
    * Delete a bucket.
    */
-  function delete_bucket($bucket = NULL, $client = NULL) {
+  function deleteBucket($bucket = NULL, $client = NULL) {
     if (is_null($bucket)) {
-      $bucket = $this->get_bucket_name();
+      $bucket = $this->getBucketName();
     }
     if (is_null($client)) {
-      $client = $this->client_factory();
+      $client = $this->clientFactory();
     }
     if ($client->doesBucketExist($bucket)) {
       drush_log(dt('Deleting bucket `%bucket`.', array('%bucket' => $bucket)));
@@ -495,9 +495,9 @@ class Provision_Service_s3 extends Provision_Service {
   /**
    * Restore a site bucket.
    */
-  function restore_site_bucket($restore_bucket) {
-    $site_bucket = $this->get_bucket_name();
-    $client = $this->client_factory();
+  function restoreSiteBucket($restore_bucket) {
+    $site_bucket = $this->getBucketName();
+    $client = $this->clientFactory();
     if ($client->doesBucketExist($restore_bucket)) {
       drush_log(dt('Restoring site bucket (%bucket).', array('%bucket' => $restore_bucket)));
 
@@ -513,18 +513,18 @@ class Provision_Service_s3 extends Provision_Service {
   /**
    * Return an S3Client object.
    */
-  function client_factory() {
+  function clientFactory() {
     static $client = NULL;
     if (is_null($client)) {
-      $creds = $this->get_credentials();
-      if (aegir_s3_credentials_exist($creds['access_key_id'], $creds['secret_access_key'], array($this, 'handle_missing_keys'))) {
-        $client = aegir_s3_client_factory($creds['access_key_id'], $creds['secret_access_key']);
+      $creds = $this->getCredentials();
+      if (aegir_s3_credentials_exist($creds['access_key_id'], $creds['secret_access_key'], array($this, 'handleMissingKeys'))) {
+        $client = aegir_s3_clientFactory($creds['access_key_id'], $creds['secret_access_key']);
       }
     }
     return $client;
   }
 
-  function get_credentials() {
+  function getCredentials() {
     return array(
       'access_key_id' => d()->s3_access_key_id,
       'secret_access_key' => d()->s3_secret_access_key,
@@ -534,14 +534,14 @@ class Provision_Service_s3 extends Provision_Service {
   /**
    * Ensure provided credentials are complete and valid.
    */
-  function validate_credentials() {
-    return aegir_s3_validate_credentials($this->client_factory(), array($this, 'handle_validation'), array($this, 'handle_exception'));
+  function validateCredentials() {
+    return aegir_s3_validateCredentials($this->clientFactory(), array($this, 'handleValidation'), array($this, 'handleException'));
   }
 
   /**
    * Error handler for missing credentials.
    */
-  function handle_missing_keys($missing_keys) {
+  function handleMissingKeys($missing_keys) {
     foreach ($missing_keys as $key => $label) {
       drush_set_error('ERROR_' . strtoupper($key) . '_MISSING', "Both S3 credentials are required. `$label` is blank.");
     }
@@ -551,7 +551,7 @@ class Provision_Service_s3 extends Provision_Service {
   /**
    * Success handler for valid credentials.
    */
-  function handle_validation() {
+  function handleValidation() {
     drush_log('S3 credentials validated.', 'ok');
     return TRUE;
   }
@@ -559,7 +559,7 @@ class Provision_Service_s3 extends Provision_Service {
   /**
    * Error handler for API exceptions.
    */
-  function handle_exception($exception, $message = 'There was an error in a request to S3.') {
+  function handleException($exception, $message = 'There was an error in a request to S3.') {
     $code = $exception->getCode();
     $message= $exception->getMessage();
     $error = array();
@@ -572,10 +572,10 @@ class Provision_Service_s3 extends Provision_Service {
   /**
    * Ensure generated bucket name is valid for S3.
    */
-  function validate_bucket_name($bucket_name){
-    $client = $this->client_factory();
+  function validateBucketName($bucket_name){
+    $client = $this->clientFactory();
 
-    if ($bucket_name = $this->suggest_bucket_name()) {
+    if ($bucket_name = $this->suggestBucketName()) {
       if ($client->isValidBucketName($bucket_name)) {
         return TRUE;
       }
@@ -589,7 +589,8 @@ class Provision_Service_s3 extends Provision_Service {
   /**
    * Save bucket name to context and pass it back to the front-end.
    */
-  function save_bucket_name($bucket_name) {
+  //TODO: write an equivalent function to write the root folder name into the context.
+  function saveBucketName($bucket_name) {
     // Pass the bucket name to the front-end.
     // See: hosting_s3_post_hosting_install_task().
     drush_set_option('s3_bucket_name', $bucket_name);
@@ -602,7 +603,7 @@ class Provision_Service_s3 extends Provision_Service {
   /**
    * Save S3 credential to context and pass it back to the front-end.
    */
-  function save_credentials($access_key_id, $secret_access_key) {
+  function saveCredentials($access_key_id, $secret_access_key) {
     // Pass the credentials to the front-end.
     // See: hosting_s3_post_hosting_import_task().
     drush_set_option('s3_access_key_id', $access_key_id);
@@ -617,8 +618,8 @@ class Provision_Service_s3 extends Provision_Service {
   /**
    * Suggest an available, unique bucket name based on a site's URL.
    */
-  function suggest_bucket_name() {
-    $client = $this->client_factory();
+  function suggestBucketName() {
+    $client = $this->clientFactory();
     $suggest_base = str_replace('.', '-', gethostname() . '-' . d()->uri);
 
     if (!$client->doesBucketExist($suggest_base)) {

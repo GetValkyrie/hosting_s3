@@ -65,7 +65,7 @@ function drush_hosting_s3_delete_bucket($bucket_name) {
     // Switch to site context.
     d($site_alias, TRUE);
     // Delete the bucket, credentials will be loaded from the associated site.
-    d()->service('s3')->delete_bucket($bucket_name);
+    d()->service('s3')->deleteBucket($bucket_name);
     if (isset($site_node)) {
       // Delete the associated entry in the hosting_s3_sites db table.
       hosting_s3_node_delete($site_node);
@@ -82,7 +82,7 @@ function drush_hosting_s3_delete_bucket($bucket_name) {
     $secret_access_key = drush_get_option('secret-key', FALSE);
     if ($access_key_id && $secret_access_key) {
       $client = aegir_s3_client_factory($access_key_id, $secret_access_key);
-      Provision_Service_s3::delete_bucket($bucket_name, $client);
+      Provision_Service_s3::deleteBucket($bucket_name, $client);
     }
     else {
       drush_set_error('HOSTING_S3_MISSING_CREDENTIALS', dt('When the bucket to delete is not associated with a site, both \'--access-key\' and \'--secret-key\' options must be provided.'));
