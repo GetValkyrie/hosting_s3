@@ -123,10 +123,20 @@ function hosting_s3_handle_exception($exception) {
 }
 
 /**
+ * Determine whether a site node has an S3 bucket and credentials associated.
+ */
+function hosting_s3_site_has_s3($node) {
+  return $node->type == 'site'
+    && isset($node->s3_access_key_id)
+    && isset($node->s3_secret_access_key)
+    && isset($node->s3_bucket_name);
+}
+
+/**
  * Implements hook_node_insert().
  */
 function hosting_s3_node_insert($node) {
-  if ($node->type == 'site') {
+  if (hosting_s3_site_has_s3($node)) {
     $id = db_insert('hosting_s3_sites')->fields(array(
       'vid' => $node->vid,
       'nid' => $node->nid,
@@ -142,7 +152,7 @@ function hosting_s3_node_insert($node) {
  * Implements hook_node_update().
  */
 function hosting_s3_node_update($node) {
-  if ($node->type == 'site') {
+  if (hosting_s3_site_has_s3($node)) {
     if (FALSE === db_query("SELECT nid FROM {hosting_s3_sites} WHERE vid = :vid", array(':vid' => $node->vid))->fetchField()) {
       hosting_s3_node_insert($node);
     }
@@ -163,7 +173,7 @@ function hosting_s3_node_update($node) {
  * Implements hook_node_view().
  */
 function hosting_s3_node_view($node, $view_mode, $langcode) {
-  if ($node->type == 'site') {
+  if (hosting_s3_site_has_s3($node)) {
     $node->content['info']['s3_bucket_name'] = array(
       '#type' => 'item',
       '#disabled' => TRUE,
@@ -193,18 +203,22 @@ function hosting_s3_node_load($nodes, $types) {
  * Implements hook_node_delete().
  */
 function hosting_s3_node_delete($node) {
-  db_delete('hosting_s3_sites')
-    ->condition('nid', $node->nid)
-    ->execute();
+  if (hosting_s3_site_has_s3($node)) {
+    db_delete('hosting_s3_sites')
+      ->condition('nid', $node->nid)
+      ->execute();
+  }
 }
 
 /**
  * Implements hook_revision_revision().
  */
 function hosting_s3_node_revision_delete($node) {
-  db_delete('hosting_s3_sites')
-    ->condition('vid', $node->vid)
-    ->execute();
+  if (hosting_s3_site_has_s3($node)) {
+    db_delete('hosting_s3_sites')
+      ->condition('vid', $node->vid)
+      ->execute();
+  }
 }
 
 /**
