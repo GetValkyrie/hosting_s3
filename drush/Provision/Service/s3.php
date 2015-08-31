@@ -291,6 +291,77 @@ class Provision_Service_s3 extends Provision_Service {
   }
 
   /**
+   * Create a new folder within a bucket and sync contents from another folder.
+   */
+  function copyFolder($src_folder, $dest_folder, $bucket, $dest_bucket = NULL) {
+    // By default, we're copying folders within the same bucket.
+    $dest_bucket = is_null($dest_bucket) ? $bucket : $dest_bucket;
+
+    $folders = array(
+      '%src_folder' => $src_folder,
+      '%dest_folder' => $dest_folder,
+    );
+
+    $client = $this->clientFactory();
+    // Create a new target bucket, if it doesn't exist already.
+    if (!$client->doesBucketExist($dest_bucket)) {
+      $this->createBucket($dest_bucket);
+    }
+
+    // TODO: create doesFolderExist() method.
+    if (!$this->doesFolderExist($root_folder, $bucket)) {
+      // TODO: Create the folder
+    }
+    else {
+      drush_log(dt('S3 bucket folder `%dest_folder` already exists. Clearing contents.', $folders));
+      // TODO: figure out a smarter way of clearing stale contents to avoid excess data transfer.
+      // TODO: create clearFolder() method.
+      //$client->clearFolder($dest_bucket);
+    }
+
+    drush_log(dt('Copying site root folder %src_folder to backup folder %dest_folder.', $folders));
+    # We fork here because PHP leaks FDs like a sieve.
+    # See https://www.drupal.org/node/1427428 and so on.
+    $pid = pcntl_fork();
+    if ($pid == -1) {
+      return drush_set_error('cannot fork. boom');
+    }
+    elseif ($pid) { // Parent process.
+      pcntl_waitpid($pid, $status); // Wait for subprocess to complete.
+      // Check if the child succeeded.
+      if (pcntl_wifexited($status) && pcntl_wexitstatus($status) == 0) {
+        drush_log(dt('Copied contents of %src_folder to %dest_folder', $folders), 'success');
+        return TRUE;
+      }
+      else {
+        drush_log('Failed to fork to copy folders');
+        return FALSE;
+      }
+    }
+    else { // Child process.
+      // The idea here is that we fork in this subprocess to ensure we don't
+      // use up all the file descriptors. We use the subprocess exit code, that
+      // is found by the parent (above) to signal the return value.
+      $status = TRUE;
+      try {
+        // Do we need to specify buckets here? probably.
+        $successful = $this->syncFolders($src_folder, $dest_folder, $client);
+        $failed = array();
+        drush_get_context('DRUSH_EXECUTION_COMPLETED', TRUE);
+        fclose(STDIN);
+        fclose(STDOUT);
+        fclose(STDERR);
+      } catch (\Guzzle\Service\Exception\CommandTransferException $e) {
+        $successful = $e->getSuccessfulCommands();
+        $failed = $e->getFailedCommands();
+        $this->handleException($e, dt('Could not copy contents of %src_folder to %dest_folder', $folders));
+        $status = FALSE;
+      }
+      exit($status);
+    }
+  }
+
+  /**
    * Create a new bucket and sync contents from another bucket.
    */
   function copyBucket($src_bucket, $dest_bucket, $client = NULL) {
@@ -350,6 +421,51 @@ class Provision_Service_s3 extends Provision_Service {
     }
   }
 
+  /**
+   * Actually do the copy of contents of folders.
+   */
+  function syncFolders($src_folder, $dest_folder, $bucket, $dest_bucket = NULL, $client = NULL) {
+    // By default, we're copying folders within the same bucket.
+    $dest_bucket = is_null($dest_bucket) ? $bucket : $dest_bucket;
+
+    $client = is_null($client) ? $this->clientFactory() : $client;
+
+    // List all src bucket objects
+    $iterator = $client->getIterator('ListObjects', array(
+      'Bucket' => $src_bucket,
+      'Prefix' => $src_folder, // TODO: test this
+    ));
+    // Perform a batch of CopyObject operations.
+    $batch = array();
+    $success = TRUE;
+    $max = 1000; $i = 0;
+    foreach ($iterator as $object) {
+      $batch[] = $client->getCommand('CopyObject', array(
+        'Bucket'     => $dest_bucket,
+        'Key'        => $object['Key'],
+        'CopySource' => urlencode($bucket . '/' . $object['Key']),
+        // Ensure they're publicly available, as the acl gets reset to private.
+        'ACL'        => 'public-read',
+      ));
+      // Every $max objects, commit the batch
+      if ((++$i % $max) == 0) {
+        // XXX: not sure what the return value is, assuming it's a bool?
+        $success &= $client->execute($batch);
+        drush_log("Copied $i objects.");
+        $batch = array();
+      }
+    }
+    // Process the remaining objects.
+    if (!empty($batch)) {
+      $success &= $client->execute($batch);
+      drush_log("Copied $i objects.");
+    }
+    return $success;
+  }
+
+  /**
+   * Actually do the copy of contents of buckets.
+   */
   function syncBuckets($src_bucket, $dest_bucket, $client = NULL) {
     // List all src bucket objects
     $iterator = $client->getIterator('ListObjects', array(
@@ -458,15 +574,56 @@ class Provision_Service_s3 extends Provision_Service {
   }
 
   /**
+   * Delete a folder from a bucket.
+   */
+  function deleteFolder($folder, $bucket = NULL, $client = NULL) {
+    // Set some default arguments, if they weren't provided.
+    $bucket = is_null($bucket) ? $this->getBucketName() : $bucket;
+    $client = is_null($client) ? $this->clientFactory() : $client;
+
+    $target = array(
+      '%folder' => $folder,
+      '%bucket' => $bucket,
+    );
+
+    if ($client->doesFolderExist($folder, $bucket)) {
+      drush_log(dt('Deleting folder `%folder` from bucket `%bucket`.', $target));
+
+      drush_log(dt('Clearing folder contents.'));
+      if ($result = $this->clearFolder($folder, $bucket)) {
+        drush_log(dt('Cleared folder contents.'), 'success');
+      }
+      else {
+        return drush_set_error('ERROR_S3_FOLDER_NOT_DELETED', 'Could not clear folder contents.');
+      }
+
+      drush_log(dt('Deleting folder `%folder`.', $target));
+      $result = $client->deleteObject(array(
+        'Bucket' => $bucket,
+        'Key'    => $folder,
+      ));
+
+      if ($result) {
+        drush_log(dt('Deleted folder `%folder` from bucket `%bucket`.', $target), 'success');
+        return $result;
+      }
+      else {
+        return drush_set_error('ERROR_S3_FOLDER_NOT_DELETED', 'Could not delete folder.');
+      }
+    }
+    else {
+      drush_log(dt('Folder %folder does not exist in bucket `%bucket`, so it cannot be deleted.', $target), 'warning');
+    }
+  }
+
+
+  /**
    * Delete a bucket.
    */
   function deleteBucket($bucket = NULL, $client = NULL) {
-    if (is_null($bucket)) {
-      $bucket = $this->getBucketName();
-    }
-    if (is_null($client)) {
-      $client = $this->clientFactory();
-    }
+    $bucket = is_null($bucket) ? $this->getBucketName() : $bucket;
+    $client = is_null($client) ? $this->clientFactory() : $client;
+
     if ($client->doesBucketExist($bucket)) {
       drush_log(dt('Deleting bucket `%bucket`.', array('%bucket' => $bucket)));
 
