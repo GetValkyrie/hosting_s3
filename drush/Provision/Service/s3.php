@@ -14,6 +14,7 @@ class Provision_Service_s3 extends Provision_Service {
     $context->setProperty('s3_access_key_id');
     $context->setProperty('s3_secret_access_key');
     $context->setProperty('s3_bucket_name');
+    $context->setProperty('s3_root_folder');
   }
 
   /**
@@ -45,6 +46,7 @@ class Provision_Service_s3 extends Provision_Service {
   function drupal_config($uri, $data) {
     $creds = $this->getCredentials();
     $bucket = $this->getBucketName();
+    $root_folder = $this->getRootFolder();
 
     drush_log('Injecting S3 bucket and credentials into site settings.php');
     $lines = array();
@@ -58,6 +60,7 @@ class Provision_Service_s3 extends Provision_Service {
     $lines[] = "  \$conf['awssdk2_access_key'] = '" . $creds['access_key_id'] . "';";
     $lines[] = "  \$conf['awssdk2_secret_key'] = '" . $creds['secret_access_key'] . "';";
     $lines[] = "  \$conf['s3fs_bucket'] = '" . $bucket . "';";
+    $lines[] = "  \$conf['s3fs_root_folder'] = '" . $root_folder . "';";
     $lines[] = "  \$conf['s3fs_file_uri_scheme_override'] = 's3';";
 
     return implode("\n", $lines);
@@ -83,6 +86,7 @@ class Provision_Service_s3 extends Provision_Service {
   function pre_install() {
     $this->createBucket();
     $this->testBucket();
+    $this->create_root_folder();
   }
 
   /**
@@ -257,7 +261,9 @@ class Provision_Service_s3 extends Provision_Service {
       # TODO: replace the relevant line instead?
       $lines = "\n";
       $lines .= "  # backup bucket name override\n";
+      # TODO: replace the below with the proper reference to the site bucket, and add a reference to the backup root dir.
       $lines .= "  \$conf['amazons3_bucket'] = '$bucket';\n";
+      #$lines .= "  \$conf['s3fs_root_folder'] = '$root_folder';\n";
       file_put_contents("$tmpdir/settings.php", $lines, FILE_APPEND);
       provision_file()->chmod("$tmpdir/settings.php", 0440);
 
@@ -505,6 +511,13 @@ class Provision_Service_s3 extends Provision_Service {
    */
   function getBucketName() {
     return d()->s3_bucket_name;
+  }
+
+  /**
+   * Return the name of the root folder from the site context.
+   */
+  function getRootFolder() {
+    return d()->s3_root_folder;
   }
 
   /**

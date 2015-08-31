@@ -14,7 +14,7 @@ function hosting_s3_drush_command() {
     'arguments' => array(
       'bucket_name' => 'The name of the bucket to delete.',
     ),
-    'options' => array(
+    'options' => array( 
       'access-key' => 'The AWS IAM access key ID to use when deleting a bucket that is not assocated to a site or backup.',
       'secret-key' => 'The AWS IAM secret access key to use when deleting a bucket that is not assocated to a site or backup.',
       'force' => 'Override checks to ensure buckets in use or tied to a backup are not accidentally deleted.',
@@ -111,6 +111,7 @@ function hosting_s3_hosting_site_context_options(&$task) {
  */
 function hosting_s3_drush_context_import($context, &$node) {
   if ($context->type == 'site') {
+//TODO: add root_folder
     $fields = array('s3_access_key_id', 's3_secret_access_key', 's3_bucket_name');
     foreach ($fields as $field) {
       if (isset($context->$field) && !empty($context->$field)) {
@@ -129,6 +130,7 @@ function hosting_s3_post_hosting_install_task($task, $data) {
     // See: Provision_Service_s3::validate_bucket_name().
     drush_log('Saving bucket name in the front end.');
     $task->ref->s3_bucket_name = $data['context']['s3_bucket_name'];
+//TODO: retrieve the root folder name here too.
   }
 }
 
@@ -151,6 +153,7 @@ function drush_hosting_s3_post_hosting_task($tid) {
     // Save the backup bucket name associated with the backup ID.
     // See: Provision_Service_s3::pre_backup().
     $bid = hosting_s3_get_latest_site_backup($task->ref->nid);
+// TODO: add root_folder here
     $bucket = $data['context']['s3_backup_name'];
     hosting_s3_save_backup($bid, $bucket);
   }
@@ -170,10 +173,12 @@ function drush_hosting_s3_pre_hosting_task() {
     // Pass this to the backend.
     // See: Provision_Service_s3::post_backup_delete().
     $task->options['s3_backups_to_delete'] = $buckets;
+//TODO: move to deleting backup folders instead of buckets
     drush_log(dt('Set buckets to delete to: %bucket', array('%bucket' => implode(',', $buckets))));
   }
   if ($task->task_type == 'restore') {
     $s3_restore_bucket = hosting_s3_load_backup($task->task_args['bid']);
+//TODO: move to restoring backup folders instead of buckets
     $task->options['s3_restore_bucket'] = $s3_restore_bucket;
     drush_log(dt('Set bucket to restore to: %bucket', array('%bucket' => $s3_restore_bucket)));
   }
@@ -185,6 +190,7 @@ function drush_hosting_s3_pre_hosting_task() {
 function drush_hosting_s3_post_hosting_backup_delete_task($task, $data) {
   $bids = array_keys($task->task_args);
   foreach ($bids as $bid) {
+// TODO: make sure this function deletes backup folderm and not the bucket.
     hosting_s3_delete_backup($bid);
   }
 }
