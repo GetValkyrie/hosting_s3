@@ -81,7 +81,7 @@ class Provision_Service_s3 extends Provision_Service {
    * Wrapper around drush_HOOK_pre_provision_install().
    */
   function pre_install() {
-    $this->create_bucket();
+    $this->createBucket();
     $this->test_bucket();
   }
 
@@ -181,7 +181,7 @@ class Provision_Service_s3 extends Provision_Service {
    * Wrapper around drush_HOOK_pre_provision_deploy().
    */
   function pre_deploy() {
-    $this->create_bucket();
+    $this->createBucket();
     $this->test_bucket();
   }
 
@@ -228,7 +228,7 @@ class Provision_Service_s3 extends Provision_Service {
       drush_set_option('s3_backup_name', $backup_bucket);
 
       if ($this->validate_bucket_name($backup_bucket)) {
-        return $this->copy_bucket($site_bucket, $backup_bucket);
+        return $this->copyBucket($site_bucket, $backup_bucket);
       }
     }
     else {
@@ -293,7 +293,7 @@ class Provision_Service_s3 extends Provision_Service {
   /**
    * Create a new bucket and sync contents from another bucket.
    */
-  function copy_bucket($src_bucket, $dest_bucket) {
+  function copyBucket($src_bucket, $dest_bucket, $client = NULL) {
     $buckets = array(
       '%src_bucket' => $src_bucket,
       '%dest_bucket' => $dest_bucket,
@@ -301,7 +301,7 @@ class Provision_Service_s3 extends Provision_Service {
 
     $client = $this->client_factory();
     if (!$client->doesBucketExist($dest_bucket)) {
-      $this->create_bucket($dest_bucket);
+      $this->createBucket($dest_bucket);
     }
     else {
       drush_log(dt('S3 bucket `%dest_bucket` already exists. Clearing contents.', $buckets));
@@ -393,11 +393,10 @@ class Provision_Service_s3 extends Provision_Service {
   /**
    * Create an S3 bucket.
    */
-  function create_bucket($bucket = NULL) {
-    if (is_null($bucket)) {
-      $bucket = $this->get_bucket_name();
-    }
-    $client = $this->client_factory();
+  function createBucket($bucket = NULL, $client = NULL) {
+    $bucket = is_null($bucket) ? $this->get_bucket_name() : $bucket;
+    $client = is_null($client) ? $this->client_factory() : $client;
+
     if (!$client->doesBucketExist($bucket)) {
       drush_log(dt('Creating S3 bucket `%bucket`.', array('%bucket' => $bucket)));
       $result = $client->createBucket(array(
@@ -502,7 +501,7 @@ class Provision_Service_s3 extends Provision_Service {
     if ($client->doesBucketExist($restore_bucket)) {
       drush_log(dt('Restoring site bucket (%bucket).', array('%bucket' => $restore_bucket)));
 
-      return $this->copy_bucket($restore_bucket, $site_bucket);
+      return $this->copyBucket($restore_bucket, $site_bucket);
     }
     else {
       drush_log(dt('Could not restore bucket (%bucket). Bucket does not exist.',
