@@ -11,30 +11,33 @@ function hosting_s3_schema() {
   $schema['hosting_s3_sites'] = array(
     'fields' => array(
       'vid' => array(
+        'description' => 'Site revision ID.',
         'type' => 'int',
         'not null' => TRUE,
-        'default' => 0,
       ),
       'nid' => array(
+        'description' => 'Site node ID',
         'type' => 'int',
         'unsigned' => TRUE,
         'not null' => TRUE,
-        'default' => 0,
       ),
       's3_access_key_id' => array(
+        'description' => 'AWS credentials key ID.',
         'type' => 'varchar',
         'length' => 255,
-        'default' => '',
+        'not null' => TRUE,
       ),
       's3_secret_access_key' => array(
+        'description' => 'AWS credentials secret key.',
         'type' => 'varchar',
         'length' => 255,
-        'default' => '',
+        'not null' => TRUE,
       ),
       's3_bucket_name' => array(
+        'description' => 'S3 bucket to store site files.',
         'type' => 'varchar',
         'length' => 255,
-        'default' => '',
+        'not null' => TRUE,
       )
     ),
     'indexes' => array(
@@ -45,16 +48,22 @@ function hosting_s3_schema() {
   $schema['hosting_s3_backups'] = array(
     'fields' => array(
       'bid' => array(
+        'description' => 'Backup ID.',
         'type' => 'int',
-        'size' => 'big',
         'not null' => TRUE,
-        'default' => 0,
       ),
       'bucket' => array(
+        'description' => 'S3 bucket to store backups.',
         'type' => 'varchar',
         'length' => 255,
-        'default' => '',
-      )
+        'not null' => TRUE,
+      ),
+      'folder' => array(
+        'description' => 'Folder in S3 bucket to store a backup.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+      ),
     ),
     'indexes' => array(
       'bid' => array('bid'),
@@ -62,4 +71,78 @@ function hosting_s3_schema() {
   );
 
   return $schema;
+}
+
+/**
+ * Add field descriptions, remove defaults, and ensure fields are not null.
+ */
+function hosting_s3_update_7100() {
+  db_change_field('hosting_s3_sites', 'vid', 'vid',
+    array(
+      'description' => 'Site revision ID.',
+      'type' => 'int',
+      'not null' => TRUE,
+    )
+  );
+  db_change_field('hosting_s3_sites', 'nid', 'nid',
+    array(
+      'description' => 'Site node ID',
+      'type' => 'int',
+      'unsigned' => TRUE,
+      'not null' => TRUE,
+    )
+  );
+  db_change_field('hosting_s3_sites', 's3_access_key_id', 's3_access_key_id',
+    array(
+      'description' => 'AWS credentials key ID.',
+      'type' => 'varchar',
+      'length' => 255,
+      'not null' => TRUE,
+    )
+  );
+  db_change_field('hosting_s3_sites', 's3_secret_access_key', 's3_secret_access_key',
+    array(
+      'description' => 'AWS credentials secret key.',
+      'type' => 'varchar',
+      'length' => 255,
+      'not null' => TRUE,
+    )
+  );
+  db_change_field('hosting_s3_sites', 's3_bucket_name', 's3_bucket_name',
+    array(
+      'description' => 'S3 bucket to store site files.',
+      'type' => 'varchar',
+      'length' => 255,
+      'not null' => TRUE,
+    )
+  );
+  db_change_field('hosting_s3_backups', 'bid', 'bid',
+    array(
+      'description' => 'Backup ID.',
+      'type' => 'int',
+      'not null' => TRUE,
+    )
+  );
+  db_change_field('hosting_s3_backups', 'bucket', 'bucket',
+    array(
+      'description' => 'S3 bucket to store backups.',
+      'type' => 'varchar',
+      'length' => 255,
+      'not null' => TRUE
+    )
+  );
+}
+
+/**
+ * Add a field to track backup folders.
+ */
+function hosting_s3_update_7101() {
+  db_add_field('hosting_s3_backups', 'folder',
+    array(
+      'description' => 'Folder in S3 bucket to store a backup.',
+      'type' => 'varchar',
+      'length' => 255,
+      'not null' => TRUE,
+    )
+  );
 }

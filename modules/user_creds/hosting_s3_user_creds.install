@@ -11,19 +11,27 @@ function hosting_s3_user_creds_schema() {
   $schema['hosting_s3_users'] = array(
     'fields' => array(
       'uid' => array(
+        'description' => 'User ID',
         'type' => 'int',
         'not null' => TRUE,
-        'description' => 'User ID',
       ),
       's3_access_key_id' => array(
+        'description' => 'AWS credentials key ID.',
         'type' => 'varchar',
         'length' => 255,
-        'default' => '',
+        'not null' => TRUE,
       ),
       's3_secret_access_key' => array(
+        'description' => 'AWS credentials secret key.',
         'type' => 'varchar',
         'length' => 255,
-        'default' => '',
+        'not null' => TRUE,
+      ),
+      's3_backup_bucket' => array(
+        'description' => 'S3 bucket to store backups.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
       ),
     ),
     'primary key' => array('uid'),
@@ -31,4 +39,40 @@ function hosting_s3_user_creds_schema() {
   );
 
   return $schema;
+}
+
+/**
+ * Add field descriptions, remove defaults, and ensure fields are not null.
+ */
+function hosting_s3_user_creds_update_7100() {
+  db_change_field('hosting_s3_users', 's3_access_key_id', 's3_access_key_id',
+    array(
+      'description' => 'AWS credentials key ID.',
+      'type' => 'varchar',
+      'length' => 255,
+      'not null' => TRUE,
+    )
+  );
+  db_change_field('hosting_s3_users', 's3_secret_access_key', 's3_secret_access_key',
+    array(
+      'description' => 'AWS credentials secret key.',
+      'type' => 'varchar',
+      'length' => 255,
+      'not null' => TRUE,
+    )
+  );
+}
+
+/**
+ * Add a field to track backup buckets per user.
+ */
+function hosting_s3_user_creds_update_7101() {
+  db_add_field('hosting_s3_users', 's3_backup_bucket',
+    array(
+      'description' => 'S3 bucket to store backups.',
+      'type' => 'varchar',
+      'length' => 255,
+      'not null' => TRUE,
+    )
+  );
 }
