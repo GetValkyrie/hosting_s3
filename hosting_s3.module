@@ -123,13 +123,14 @@ function hosting_s3_handle_exception($exception) {
 }
 
 /**
- * Determine whether a site node has an S3 bucket and credentials associated.
+ * Determine whether a site node has a S3 buckets and credentials associated.
  */
 function hosting_s3_site_has_s3($node) {
-  return $node->type == 'site'
-    && isset($node->s3_access_key_id)
-    && isset($node->s3_secret_access_key)
-    && isset($node->s3_bucket_name);
+  return $node->type == 'site' &&
+    isset($node->s3_access_key_id) && !empty($node->s3_access_key_id) &&
+    isset($node->s3_secret_access_key) && !empty($node->s3_secret_access_key) &&
+    isset($node->s3_bucket_name) && !empty($node->s3_bucket_name) &&
+    isset($node->s3_backup_bucket) && !empty($node->s3_backup_bucket);
 }
 
 /**
@@ -253,3 +254,46 @@ function hosting_s3_delete_backup($bid) {
 function hosting_s3_load_backup($bid) {
   return db_query("SELECT bucket FROM {hosting_s3_backups} WHERE bid = :bid", array(':bid' => $bid))->fetchField();
 }
+
+/**
+ * Suggest an available, unique bucket name.
+ */
+function hosting_s3_suggest_bucket_name($client, $suggest_base) {
+  if (!$client->doesBucketExist($suggest_base)) {
+    return $suggest_base;
+  }
+
+  for ($i = 0; $i < 100; $i++) {
+    $option = $suggest_base . $i;
+    if (!$client->doesBucketExist($option)) {
+      return $option;
+    }
+  }
+
+  drupal_set_message(t("Could not find a free bucket name after 100 attempts"), 'error');
+  return false;
+}
+
+/**
+ * Create an S3 bucket.
+ */
+function hosting_s3_create_bucket($client, $bucket) {
+  if (!$client->doesBucketExist($bucket)) {
+    $result = $client->createBucket(array(
+      'Bucket' => $bucket,
+    ));
+    // Wait until the bucket is created.
+    $client->waitUntilBucketExists(array('Bucket' => $bucket));
+    if ($client->doesBucketExist($bucket)) {
+      drupal_set_message(t('Created S3 bucket `%bucket`.', array('%bucket' => $bucket)));
+      return $result;
+    }
+    else {
+      return drupal_set_message(t('Could not create S3 bucket `%bucket`.', array('%bucket' => $bucket)), 'error');
+    }
+  }
+  else {
+    return drupal_set_message(t('S3 bucket `%bucket` already exists.', array('%bucket' => $bucket)), 'error');
+  }
+}
+

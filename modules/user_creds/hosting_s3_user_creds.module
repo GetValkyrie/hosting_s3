@@ -29,18 +29,51 @@ function hosting_s3_user_creds_form_alter(&$form, $form_state, $form_id) {
     $form['s3']['s3_access_key_id'] = array(
       '#type' => 'textfield',
       '#title' => t('Access key ID'),
+      '#disabled' => isset($form['#user']->s3_access_key_id),
       '#attributes' => array('autocomplete' => 'off'),
       '#default_value' => isset($form['#user']->s3_access_key_id) ? $form['#user']->s3_access_key_id : '',
     );
     $form['s3']['s3_secret_access_key'] = array(
-      '#type' => 'textfield',
+      '#type' => 'password',
       '#title' => t('Secret access key'),
+      '#disabled' => isset($form['#user']->s3_secret_access_key),
       '#attributes' => array('autocomplete' => 'off'),
       '#default_value' => isset($form['#user']->s3_secret_access_key) ? $form['#user']->s3_secret_access_key : '',
     );
+    $form['s3']['s3_backup_bucket'] = array(
+      '#type' => 'item',
+      '#title' => t('Backup bucket'),
+      '#markup' => isset($form['#user']->s3_backup_bucket) ? $form['#user']->s3_backup_bucket : 'A bucket to store site backups is created when credentials are saved.',
+    );
+ 
     $form['#validate'][] = 'hosting_s3_validate_credentials';
+    // We have to do this in a validate hook, because submit handlers appear to
+    // be called after hook_user_insert().
+    $form['#validate'][] = 'hosting_s3_user_creds_submit';
   }
   return $form;
+}
+
+/**
+ * Submit handler to create a backup bucket.
+ */
+function hosting_s3_user_creds_submit($form, &$form_state) {
+  $values = &$form_state['values'];
+  if (isset($values['s3_access_key_id']) && !empty($values['s3_access_key_id']) &&
+      isset($values['s3_secret_access_key']) && !empty($values['s3_secret_access_key'])
+     ) {
+    $access_key_id = $values['s3_access_key_id'];
+    $secret_access_key = $values['s3_secret_access_key'];
+    $client = aegir_s3_client_factory($access_key_id, $secret_access_key);
+    $bucket_name = str_replace('.', '-', gethostname() . '-user-' . $form['#user']->name . '-' . $form['#user']->uid . '-backups');
+    $bucket_name = hosting_s3_suggest_bucket_name($client, $bucket_name);
+    if (hosting_s3_create_bucket($client, $bucket_name)) {
+      $values['s3_backup_bucket'] = $bucket_name;
+    }
+    else {
+      return drupal_set_message(t('Failed to create bucket `:bucket`.', array(':bucket' => $bucket_name)));
+    }
+  }
 }
 
 /**
@@ -48,12 +81,14 @@ function hosting_s3_user_creds_form_alter(&$form, $form_state, $form_id) {
  */
 function hosting_s3_user_creds_get_creds($uid) {
   $account = user_load($uid);
-  if (isset($account->s3_access_key_id) && isset($account->s3_secret_access_key) &&
-      !empty($account->s3_access_key_id) && !empty($account->s3_secret_access_key)
+  if (isset($account->s3_access_key_id) && !empty($account->s3_access_key_id) &&
+      isset($account->s3_secret_access_key) && !empty($account->s3_secret_access_key) &&
+      isset($account->s3_backup_bucket) && !empty($account->s3_backup_bucket)
     ) {
     return array(
       's3_access_key_id' => $account->s3_access_key_id,
       's3_secret_access_key' => $account->s3_secret_access_key,
+      's3_backup_bucket' => $account->s3_backup_bucket,
     );
   }
   else {
@@ -71,7 +106,8 @@ function hosting_s3_validate_inherit_user_credentials($form, &$form_state) {
       // Inject the inherited credentials.
       $form_state['values']['s3_access_key_id'] = $user_creds['s3_access_key_id'];
       $form_state['values']['s3_secret_access_key'] = $user_creds['s3_secret_access_key'];
-      drupal_set_message('Set site S3 credentials from those in your user account.');
+      $form_state['values']['s3_backup_bucket'] = $user_creds['s3_backup_bucket'];
+      drupal_set_message('Set site S3 credentials (and backup bucket) from those in your user account.');
     }
     else {
       form_set_error('s3', 'You tried to use S3 credentials from your user account, but none are set.');
@@ -80,14 +116,15 @@ function hosting_s3_validate_inherit_user_credentials($form, &$form_state) {
 }
 
 /**
- * Implements hook_node_insert().
+ * Implements hook_user_insert().
  */
 function hosting_s3_user_creds_user_insert(&$edit, $account, $category) {
-  if (!empty($edit['s3_access_key_id']) && !empty($edit['s3_secret_access_key'])) {
+  if (!empty($edit['s3_access_key_id']) && !empty($edit['s3_secret_access_key']) && !empty($edit['s3_backup_bucket'])) {
     $id = db_insert('hosting_s3_users')->fields(array(
       'uid' => $account->uid,
       's3_access_key_id' => $edit['s3_access_key_id'],
       's3_secret_access_key' => $edit['s3_secret_access_key'],
+      's3_backup_bucket' => $edit['s3_backup_bucket'],
     ))
     ->execute();
   }
@@ -105,6 +142,7 @@ function hosting_s3_user_creds_user_update(&$edit, $account, $category) {
       ->fields(array(
         's3_access_key_id' => $edit['s3_access_key_id'],
         's3_secret_access_key' => $edit['s3_secret_access_key'],
+        's3_backup_bucket' => $edit['s3_backup_bucket'],
       ))
       ->condition('uid', $account->uid)
       ->execute();
@@ -116,7 +154,7 @@ function hosting_s3_user_creds_user_update(&$edit, $account, $category) {
  */
 function hosting_s3_user_creds_user_load($users) {
   foreach ($users as $uid => &$account) {
-    $fields = db_query("SELECT s3_access_key_id, s3_secret_access_key FROM {hosting_s3_users} WHERE uid = :uid", array(':uid' => $uid))->fetchAssoc();
+    $fields = db_query("SELECT s3_access_key_id, s3_secret_access_key, s3_backup_bucket FROM {hosting_s3_users} WHERE uid = :uid", array(':uid' => $uid))->fetchAssoc();
     if (is_array($fields)) {
       foreach ($fields as $key => $value) {
         $account->$key = $value;

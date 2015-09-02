@@ -19,7 +19,6 @@ function hosting_s3_drush_command() {
       'secret-key' => 'The AWS IAM secret access key to use when deleting a bucket that is not assocated to a site or backup.',
       'force' => 'Override checks to ensure buckets in use or tied to a backup are not accidentally deleted.',
     ),
-    'allow-additional-options' => TRUE,
     'bootstrap' => DRUSH_BOOTSTRAP_FULL,
   );
 
@@ -56,6 +55,58 @@ function drush_hosting_s3_delete_bucket($bucket_name) {
       $site_alias = hosting_context_name($site_node->nid);
     }
   }
+  if (module_exists('hosting_s3_client_creds')) {
+    // Check if this bucket is a client backup bucket
+    $sql = "SELECT client, s3_access_key_id, s3_secret_access_key FROM {hosting_s3_clients} WHERE s3_backup_bucket=:bucket_name";
+    $result = db_query($sql, array(':bucket_name' => $bucket_name))->fetch();
+    if (isset($result->client)) {
+      if (!drush_get_option('force', FALSE)) {
+        return drush_set_error('HOSTING_S3_BUCKET_IN_USE', dt('Bucket is associated with a client. Use \'--force\' to delete the bucket anyway.'));
+      }
+      else {
+        if (drush_confirm('WARNING! You are about to delete a bucket that was created to keep backups for all of a client\'s sites. This is IRREVERSIBLE, and is likely to result in DATA LOSS. Are you sure you want to continue?')) {
+          if (!drush_get_option('access-key', FALSE)) {
+            drush_set_option('access-key', $result->s3_access_key_id);
+          }
+          if (!drush_get_option('secret-key', FALSE)) {
+            drush_set_option('secret-key', $result->s3_secret_access_key);
+          }
+          // Delete the entry from our database table.
+          $client_node = hosting_get_client($result->client);
+          hosting_s3_client_creds_node_delete($client_node);
+          }
+        else {
+          return drush_user_abort();
+        }
+      }
+    }
+  }
+  if (module_exists('hosting_s3_user_creds')) {
+    // Check if this bucket is a user backup bucket
+    $sql = "SELECT uid, s3_access_key_id, s3_secret_access_key FROM {hosting_s3_users} WHERE s3_backup_bucket=:bucket_name";
+    $result = db_query($sql, array(':bucket_name' => $bucket_name))->fetch();
+    if (isset($result->uid)) {
+      if (!drush_get_option('force', FALSE)) {
+        return drush_set_error('HOSTING_S3_BUCKET_IN_USE', dt('Bucket is associated with a user. Use \'--force\' to delete the bucket anyway.'));
+      }
+      else {
+        if (drush_confirm('WARNING! You are about to delete a bucket that was created to keep backups for all of a user\'s sites. This is IRREVERSIBLE, and is likely to result in DATA LOSS. Are you sure you want to continue?')) {
+          if (!drush_get_option('access-key', FALSE)) {
+            drush_set_option('access-key', $result->s3_access_key_id);
+          }
+          if (!drush_get_option('secret-key', FALSE)) {
+            drush_set_option('secret-key', $result->s3_secret_access_key);
+          }
+          // Delete the entry from our database table.
+          $account = user_load($result->uid);
+          hosting_s3_user_creds_user_delete($account);
+        }
+        else {
+          return drush_user_abort();
+        }
+      }
+    }
+  }
 
   // Check that we're deleting a site bucket, or a backup bucket associated to
   // a site that still exists. If the site was deleted, or this bucket was
@@ -85,7 +136,7 @@ function drush_hosting_s3_delete_bucket($bucket_name) {
       Provision_Service_s3::deleteBucket($bucket_name, $client);
     }
     else {
-      drush_set_error('HOSTING_S3_MISSING_CREDENTIALS', dt('When the bucket to delete is not associated with a site, both \'--access-key\' and \'--secret-key\' options must be provided.'));
+      drush_set_error('HOSTING_S3_MISSING_CREDENTIALS', dt('When the bucket to delete is not associated with a site, client or user, both \'--access-key\' and \'--secret-key\' options must be provided.'));
     }
   }
 

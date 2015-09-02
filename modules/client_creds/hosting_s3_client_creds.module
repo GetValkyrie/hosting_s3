@@ -8,27 +8,7 @@
  * Implements hook_form_alter().
  */
 function hosting_s3_client_creds_form_alter(&$form, $form_state, $form_id) {
-  if ($form_id == 'client_node_form') {
-    $form['s3'] = array(
-      '#type' => 'fieldset',
-      '#title' => t('S3 credentials'),
-      '#description' => t('Credentials for access to create and manage an S3 bucket for this client\'s sites.'),
-    );
-    $form['s3']['s3_access_key_id'] = array(
-      '#type' => 'textfield',
-      '#title' => t('Access key ID'),
-      '#attributes' => array('autocomplete' => 'off'),
-      '#default_value' => isset($form['#node']->s3_access_key_id) ? $form['#node']->s3_access_key_id : '',
-    );
-    $form['s3']['s3_secret_access_key'] = array(
-      '#type' => 'textfield',
-      '#title' => t('Secret access key'),
-      '#attributes' => array('autocomplete' => 'off'),
-      '#default_value' => isset($form['#node']->s3_secret_access_key) ? $form['#node']->s3_secret_access_key : '',
-    );
-    $form['#validate'][] = 'hosting_s3_validate_credentials';
-  }
-  elseif ($form_id == 'site_node_form') {
+  if ($form_id == 'site_node_form') {
     $new_site = (bool) is_null($form['nid']['#value']);
     if ($new_site) {
       $form['s3']['inherit_creds']['#options']['client'] = 'Use the credentials from this site\'s client account';
@@ -41,7 +21,59 @@ function hosting_s3_client_creds_form_alter(&$form, $form_state, $form_id) {
         array_slice($form['#validate'], $position, count($form['#validate'])-$position, true);
     }
   }
+  elseif ($form_id == 'client_node_form') {
+    $form['s3'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('S3 credentials'),
+      '#description' => t('Credentials for access to create and manage an S3 bucket for this client\'s sites.'),
+    );
+    $form['s3']['s3_access_key_id'] = array(
+      '#type' => 'textfield',
+      '#disabled' => isset($form['#node']->s3_access_key_id),
+      '#title' => t('Access key ID'),
+      '#attributes' => array('autocomplete' => 'off'),
+      '#default_value' => isset($form['#node']->s3_access_key_id) ? $form['#node']->s3_access_key_id : '',
+    );
+    $form['s3']['s3_secret_access_key'] = array(
+      '#type' => 'password',
+      '#disabled' => isset($form['#node']->s3_secret_access_key),
+      '#title' => t('Secret access key'),
+      '#attributes' => array('autocomplete' => 'off'),
+      '#default_value' => isset($form['#node']->s3_secret_access_key) ? $form['#node']->s3_secret_access_key : '',
+    );
+    $form['s3']['s3_backup_bucket'] = array(
+      '#type' => 'item',
+      '#title' => t('Backup bucket'),
+      '#markup' => isset($form['#node']->s3_backup_bucket) ? $form['#node']->s3_backup_bucket : 'A bucket to store site backups is created when credentials are saved.',
+    );
+ 
+    $form['#validate'][] = 'hosting_s3_validate_credentials';
+    $form['#submit'][-1] = 'hosting_s3_client_creds_submit';
+  }
   return $form;
+}
+
+/**
+ * Submit handler to create a backup bucket.
+ */
+function hosting_s3_client_creds_submit(&$form, &$form_state) {
+  $values = &$form_state['values'];
+  // TODO: only do this once. like when there's no backup bucket yet?
+  if (isset($values['s3_access_key_id']) && !empty($values['s3_access_key_id']) &&
+      isset($values['s3_secret_access_key']) && !empty($values['s3_secret_access_key'])
+     ) {
+    $access_key_id = $values['s3_access_key_id'];
+    $secret_access_key = $values['s3_secret_access_key'];
+    $client = aegir_s3_client_factory($access_key_id, $secret_access_key);
+    $bucket_name = str_replace('.', '-', gethostname() . '-client-' . $values['uname'] . '-' . $values['nid'] . '-backups');
+    $bucket_name = hosting_s3_suggest_bucket_name($client, $bucket_name);
+    if (hosting_s3_create_bucket($client, $bucket_name)) {
+      $values['s3_backup_bucket'] = $bucket_name;
+    }
+    else {
+      return drupal_set_message(t('Failed to create bucket `:bucket`.', array(':bucket' => $bucket_name)));
+    }
+  }
 }
 
 /**
@@ -49,17 +81,25 @@ function hosting_s3_client_creds_form_alter(&$form, $form_state, $form_id) {
  */
 function hosting_s3_client_creds_get_creds($client_name) {
   $client = hosting_get_client($client_name);
-  if (isset($client->s3_access_key_id) && isset($client->s3_secret_access_key) &&
-      !empty($client->s3_access_key_id) && !empty($client->s3_secret_access_key)
-    ) {
+  if (hosting_s3_client_creds_has_s3($client)) {
     return array(
       's3_access_key_id' => $client->s3_access_key_id,
       's3_secret_access_key' => $client->s3_secret_access_key,
+      's3_backup_bucket' => $client->s3_backup_bucket,
     );
   }
   else {
     return FALSE;
   }
+}
+
+/**
+ * Determine whether a client node has a backup S3 bucket and credentials associated.
+ */
+function hosting_s3_client_creds_has_s3($client) {
+  return isset($client->s3_access_key_id) && !empty($client->s3_access_key_id) &&
+    isset($client->s3_secret_access_key) && !empty($client->s3_secret_access_key) &&
+    isset($client->s3_backup_bucket) && !empty($client->s3_backup_bucket);
 }
 
 /**
@@ -71,6 +111,7 @@ function hosting_s3_validate_inherit_client_credentials($form, &$form_state) {
       // Inject the inherited credentials.
       $form_state['values']['s3_access_key_id'] = $client_creds['s3_access_key_id'];
       $form_state['values']['s3_secret_access_key'] = $client_creds['s3_secret_access_key'];
+      $form_state['values']['s3_backup_bucket'] = $client_creds['s3_backup_bucket'];
       drupal_set_message('Set site S3 credentials from those in the client account.');
     }
     else {
@@ -88,6 +129,7 @@ function hosting_s3_client_creds_node_insert($node) {
       'client' => $node->uname,
       's3_access_key_id' => $node->s3_access_key_id,
       's3_secret_access_key' => $node->s3_secret_access_key,
+      's3_backup_bucket' => $node->s3_backup_bucket,
     ))
     ->execute();
   }
@@ -106,6 +148,7 @@ function hosting_s3_client_creds_node_update($node) {
         ->fields(array(
           's3_access_key_id' => $node->s3_access_key_id,
           's3_secret_access_key' => $node->s3_secret_access_key,
+          's3_backup_bucket' => $node->s3_backup_bucket,
         ))
         ->condition('client', $node->uname)
         ->execute();
@@ -119,7 +162,7 @@ function hosting_s3_client_creds_node_update($node) {
 function hosting_s3_client_creds_node_load($nodes, $types) {
   foreach ($nodes as $nid => &$node) {
     if ($node->type == 'client') {
-      $fields = db_query("SELECT s3_access_key_id, s3_secret_access_key FROM {hosting_s3_clients} WHERE client = :client", array(':client' => $node->uname))->fetchAssoc();
+      $fields = db_query("SELECT s3_access_key_id, s3_secret_access_key, s3_backup_bucket FROM {hosting_s3_clients} WHERE client = :client", array(':client' => $node->uname))->fetchAssoc();
       if (is_array($fields)) {
         foreach ($fields as $key => $value) {
           $nodes[$nid]->$key = $value;

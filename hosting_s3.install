@@ -38,6 +38,12 @@ function hosting_s3_schema() {
         'type' => 'varchar',
         'length' => 255,
         'not null' => TRUE,
+      ),
+      's3_backup_bucket_name' => array(
+        'description' => 'S3 bucket to store site backups.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
       )
     ),
     'indexes' => array(
@@ -137,6 +143,14 @@ function hosting_s3_update_7100() {
  * Add a field to track backup folders.
  */
 function hosting_s3_update_7101() {
+  db_add_field('hosting_s3_sites', 's3_backup_bucket_name',
+    array(
+      'description' => 'S3 bucket to store site backups.',
+      'type' => 'varchar',
+      'length' => 255,
+      'not null' => TRUE,
+    )
+  );
   db_add_field('hosting_s3_backups', 'folder',
     array(
       'description' => 'Folder in S3 bucket to store a backup.',
