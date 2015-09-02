@@ -14,7 +14,7 @@ class Provision_Service_s3 extends Provision_Service {
     $context->setProperty('s3_access_key_id');
     $context->setProperty('s3_secret_access_key');
     $context->setProperty('s3_bucket_name');
-    $context->setProperty('s3_root_folder');
+    $context->setProperty('s3_backup_bucket');
   }
 
   /**
@@ -86,7 +86,6 @@ class Provision_Service_s3 extends Provision_Service {
   function pre_install() {
     $this->createBucket();
     $this->testBucket();
-    $this->create_root_folder();
   }
 
   /**
@@ -629,7 +628,6 @@ class Provision_Service_s3 extends Provision_Service {
       drush_log(dt('Folder %folder does not exist in bucket `%bucket`, so it cannot be deleted.', $target), 'warning');
     }
   }
-
 
   /**
    * Delete a bucket.

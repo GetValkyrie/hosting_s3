@@ -47,7 +47,7 @@ function drush_hosting_s3_delete_bucket($bucket_name) {
   // Check if this bucket is used on a site
   $sql = "SELECT nid FROM {hosting_s3_sites} WHERE s3_bucket_name=:bucket_name";
   $result = db_query($sql, array(':bucket_name' => $bucket_name))->fetch();
-  if (isset($result->nid)) {  
+  if (isset($result->nid)) {
     if (!drush_get_option('force', FALSE)) {
       return drush_set_error('HOSTING_S3_BUCKET_IN_USE', dt('Bucket is associated with a site. Use \'--force\' to delete the bucket anyway.'));
     }

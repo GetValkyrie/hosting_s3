@@ -62,7 +62,7 @@ function hosting_s3_user_creds_get_creds($uid) {
 }
 
 /**
- * Form validate to check that client S3 credentials are set, and inject them into the site.
+ * Form validate to check that user S3 credentials are set, and inject them into the site.
  */
 function hosting_s3_validate_inherit_user_credentials($form, &$form_state) {
   if ($form_state['values']['inherit_creds'] == 'user') {
