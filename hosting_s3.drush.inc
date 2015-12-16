@@ -79,7 +79,9 @@ function drush_hosting_s3_pre_hosting_task() {
     $bids = array_keys($task->task_args);
     $buckets = array();
     foreach ($bids as $bid) {
-      $buckets[] = hosting_s3_load_backup($bid);
+      if ($bucket = hosting_s3_load_backup($bid)) {
+        $buckets[] = $bucket;
+      }
     }
     // Pass this to the backend.
     // See: Provision_Service_s3::post_backup_delete().
