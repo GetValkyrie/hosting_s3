@@ -17,6 +17,7 @@ use Symfony\Component\EventDispatcher\Event;
  * Client to interact with Amazon Cognito Identity
  *
  * @method Model createIdentityPool(array $args = array()) {@command CognitoIdentity CreateIdentityPool}
+ * @method Model deleteIdentities(array $args = array()) {@command CognitoIdentity DeleteIdentities}
  * @method Model deleteIdentityPool(array $args = array()) {@command CognitoIdentity DeleteIdentityPool}
  * @method Model describeIdentity(array $args = array()) {@command CognitoIdentity DescribeIdentity}
  * @method Model describeIdentityPool(array $args = array()) {@command CognitoIdentity DescribeIdentityPool}
@@ -34,8 +35,8 @@ use Symfony\Component\EventDispatcher\Event;
  * @method Model unlinkIdentity(array $args = array()) {@command CognitoIdentity UnlinkIdentity}
  * @method Model updateIdentityPool(array $args = array()) {@command CognitoIdentity UpdateIdentityPool}
  *
- * @link http://docs.aws.amazon.com/aws-sdk-php/guide/latest/service-cognitoidentity.html User guide
- * @link http://docs.aws.amazon.com/aws-sdk-php/latest/class-Aws.CognitoIdentity.CognitoIdentityClient.html API docs
+ * @link http://docs.aws.amazon.com/aws-sdk-php/v2/guide/service-cognitoidentity.html User guide
+ * @link http://docs.aws.amazon.com/aws-sdk-php/v2/api/class-Aws.CognitoIdentity.CognitoIdentityClient.html API docs
  */
 class CognitoIdentityClient extends AbstractClient
 {
@@ -44,12 +45,12 @@ class CognitoIdentityClient extends AbstractClient
     /**
      * Factory method to create a new Amazon Cognito Identity client using an array of configuration options.
      *
-     * See http://docs.aws.amazon.com/aws-sdk-php/guide/latest/configuration.html#client-configuration-options
+     * See http://docs.aws.amazon.com/aws-sdk-php/v2/guide/configuration.html#client-configuration-options
      *
      * @param array|Collection $config Client configuration data
      *
      * @return self
-     * @link http://docs.aws.amazon.com/aws-sdk-php/guide/latest/configuration.html#client-configuration-options
+     * @link http://docs.aws.amazon.com/aws-sdk-php/v2/guide/configuration.html#client-configuration-options
      */
     public static function factory($config = array())
     {

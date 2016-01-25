@@ -446,6 +446,27 @@ return array (
                             'minimum' => 1,
                             'maximum' => 10,
                         ),
+                        'MeasureLatency' => array(
+                            'type' => 'boolean',
+                            'format' => 'boolean-string',
+                        ),
+                        'Inverted' => array(
+                            'type' => 'boolean',
+                            'format' => 'boolean-string',
+                        ),
+                        'HealthThreshold' => array(
+                            'type' => 'numeric',
+                            'maximum' => 256,
+                        ),
+                        'ChildHealthChecks' => array(
+                            'type' => 'array',
+                            'maxItems' => 256,
+                            'items' => array(
+                                'name' => 'ChildHealthCheck',
+                                'type' => 'string',
+                                'maxLength' => 64,
+                            ),
+                        ),
                     ),
                 ),
                 'command.expects' => array(
@@ -1478,6 +1499,26 @@ return array (
                     'minimum' => 1,
                     'maximum' => 10,
                 ),
+                'Inverted' => array(
+                    'type' => 'boolean',
+                    'format' => 'boolean-string',
+                    'location' => 'xml',
+                ),
+                'HealthThreshold' => array(
+                    'type' => 'numeric',
+                    'location' => 'xml',
+                    'maximum' => 256,
+                ),
+                'ChildHealthChecks' => array(
+                    'type' => 'array',
+                    'location' => 'xml',
+                    'maxItems' => 256,
+                    'items' => array(
+                        'name' => 'ChildHealthCheck',
+                        'type' => 'string',
+                        'maxLength' => 64,
+                    ),
+                ),
                 'command.expects' => array(
                     'static' => true,
                     'default' => 'application/xml',
@@ -1646,6 +1687,23 @@ return array (
                                 ),
                                 'FailureThreshold' => array(
                                     'type' => 'numeric',
+                                ),
+                                'MeasureLatency' => array(
+                                    'type' => 'boolean',
+                                ),
+                                'Inverted' => array(
+                                    'type' => 'boolean',
+                                ),
+                                'HealthThreshold' => array(
+                                    'type' => 'numeric',
+                                ),
+                                'ChildHealthChecks' => array(
+                                    'type' => 'array',
+                                    'items' => array(
+                                        'name' => 'ChildHealthCheck',
+                                        'type' => 'string',
+                                        'sentAs' => 'ChildHealthCheck',
+                                    ),
                                 ),
                             ),
                         ),
@@ -1988,6 +2046,23 @@ return array (
                                 'FailureThreshold' => array(
                                     'type' => 'numeric',
                                 ),
+                                'MeasureLatency' => array(
+                                    'type' => 'boolean',
+                                ),
+                                'Inverted' => array(
+                                    'type' => 'boolean',
+                                ),
+                                'HealthThreshold' => array(
+                                    'type' => 'numeric',
+                                ),
+                                'ChildHealthChecks' => array(
+                                    'type' => 'array',
+                                    'items' => array(
+                                        'name' => 'ChildHealthCheck',
+                                        'type' => 'string',
+                                        'sentAs' => 'ChildHealthCheck',
+                                    ),
+                                ),
                             ),
                         ),
                         'HealthCheckVersion' => array(
@@ -2308,6 +2383,23 @@ return array (
                                     ),
                                     'FailureThreshold' => array(
                                         'type' => 'numeric',
+                                    ),
+                                    'MeasureLatency' => array(
+                                        'type' => 'boolean',
+                                    ),
+                                    'Inverted' => array(
+                                        'type' => 'boolean',
+                                    ),
+                                    'HealthThreshold' => array(
+                                        'type' => 'numeric',
+                                    ),
+                                    'ChildHealthChecks' => array(
+                                        'type' => 'array',
+                                        'items' => array(
+                                            'name' => 'ChildHealthCheck',
+                                            'type' => 'string',
+                                            'sentAs' => 'ChildHealthCheck',
+                                        ),
                                     ),
                                 ),
                             ),
@@ -2745,6 +2837,23 @@ return array (
                                 ),
                                 'FailureThreshold' => array(
                                     'type' => 'numeric',
+                                ),
+                                'MeasureLatency' => array(
+                                    'type' => 'boolean',
+                                ),
+                                'Inverted' => array(
+                                    'type' => 'boolean',
+                                ),
+                                'HealthThreshold' => array(
+                                    'type' => 'numeric',
+                                ),
+                                'ChildHealthChecks' => array(
+                                    'type' => 'array',
+                                    'items' => array(
+                                        'name' => 'ChildHealthCheck',
+                                        'type' => 'string',
+                                        'sentAs' => 'ChildHealthCheck',
+                                    ),
                                 ),
                             ),
                         ),
