@@ -102,6 +102,7 @@ class Provision_Service_s3 extends Provision_Service {
    */
   function pre_backup_rollback() {
     if ($bucket = drush_get_option('s3_backup_name', FALSE)) {
+      // TODO: here we should delete the backup folder. do we need to pass in the bucket name too?
       $this->deleteBucket($bucket);
     }
     else {
@@ -121,6 +122,7 @@ class Provision_Service_s3 extends Provision_Service {
    */
   function pre_restore() {
     if ($restore_bucket = drush_get_option('s3_restore_bucket', FALSE)) {
+      // TODO: Here we need to specify the folder (not the bucket) from whence to restore.
       $this->restoreSiteBucket($restore_bucket);
     }
   }
@@ -143,6 +145,7 @@ class Provision_Service_s3 extends Provision_Service {
   function post_backup_delete() {
     $backups = drush_get_option('s3_backups_to_delete', array());
     foreach ($backups as $backup) {
+      // TODO: Delete backup folders, not the bucket.
       $this->deleteBucket($backup);
     }
   }
@@ -151,8 +154,6 @@ class Provision_Service_s3 extends Provision_Service {
    * Wrapper around drush_HOOK_pre_provision_delete().
    */
   function pre_delete() {
-    // TODO: We usually take a site backup prior to deletion.
-    // Should we sync the bucket locally for such a backup?
     $this->deleteBucket();
   }
 
@@ -185,6 +186,7 @@ class Provision_Service_s3 extends Provision_Service {
    */
   function deploy() {
     if ($bucket = drush_get_option('s3_backup_name', FALSE)) {
+      // TODO: restore from a backup folder here.
       $this->restoreSiteBucket($bucket);
     }
   }
@@ -196,6 +198,7 @@ class Provision_Service_s3 extends Provision_Service {
     // Inject the backup bucket name during the 'clone' task, so that it is
     // available in deploy().
     if ($bucket = drush_get_option('s3_backup_name', FALSE)) {
+      // TODO: I suspect that we'll need to also pass the backup folder here.
       $deploy_options['s3_backup_name'] = $bucket;
     }
   }
@@ -210,6 +213,7 @@ class Provision_Service_s3 extends Provision_Service {
    * @return
    *   The generated name of the backup bucket.
    */
+  // TODO: here we need to backup a site bucket to a backup folder
   function backupSiteBucket() {
     $site_bucket = $this->getBucketName();
     $client = $this->clientFactory();
@@ -254,6 +258,7 @@ class Provision_Service_s3 extends Provision_Service {
       $lines .= "  # backup bucket name override\n";
       # TODO: replace the below with the proper reference to the site bucket, and add a reference to the backup root dir.
       $lines .= "  \$conf['amazons3_bucket'] = '$bucket';\n";
+      // TODO: the backup folder will be the 'root folder' here
       #$lines .= "  \$conf['s3fs_root_folder'] = '$root_folder';\n";
       file_put_contents("$tmpdir/settings.php", $lines, FILE_APPEND);
       provision_file()->chmod("$tmpdir/settings.php", 0440);
@@ -657,6 +662,7 @@ class Provision_Service_s3 extends Provision_Service {
   /**
    * Restore a site bucket.
    */
+  // TODO: restore to a site bucket, from a backup folder.
   function restoreSiteBucket($restore_bucket) {
     $site_bucket = $this->getBucketName();
     $client = $this->clientFactory();
@@ -751,7 +757,7 @@ class Provision_Service_s3 extends Provision_Service {
   /**
    * Save bucket name to context and pass it back to the front-end.
    */
-  //TODO: write an equivalent function to write the root folder name into the context.
+  //TODO: write an equivalent function to write the backup bucket into the context.
   function saveBucketName($bucket_name) {
     // Pass the bucket name to the front-end.
     // See: hosting_s3_post_hosting_install_task().
@@ -780,6 +786,7 @@ class Provision_Service_s3 extends Provision_Service {
   /**
    * Suggest an available, unique bucket name based on a site's URL.
    */
+  //TODO: write an equivalent function to suggest the backup folder name.
   function suggestBucketName() {
     $client = $this->clientFactory();
     $suggest_base = str_replace('.', '-', gethostname() . '-' . d()->uri);

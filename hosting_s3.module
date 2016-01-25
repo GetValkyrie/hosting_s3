@@ -236,6 +236,7 @@ function hosting_s3_save_backup($bid, $bucket) {
   db_insert('hosting_s3_backups')->fields(array(
     'bid' => $bid,
     'bucket' => $bucket,
+    // TODO: add the backup folder here
   ))->execute();
 }
 
@@ -252,6 +253,7 @@ function hosting_s3_delete_backup($bid) {
  * Look up a backup bucket name.
  */
 function hosting_s3_load_backup($bid) {
+  // TODO: add the backup folder here?
   return db_query("SELECT bucket FROM {hosting_s3_backups} WHERE bid = :bid", array(':bid' => $bid))->fetchField();
 }
 
