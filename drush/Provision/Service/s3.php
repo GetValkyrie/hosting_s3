@@ -358,7 +358,7 @@ class Provision_Service_s3 extends Provision_Service {
     // Perform a batch of CopyObject operations.
     $batch = array();
     $success = TRUE;
-    $max = 1000; $i = 0;
+    $max = 500; $i = 0;
     foreach ($iterator as $object) {
       $batch[] = $client->getCommand('CopyObject', array(
         'Bucket'     => $dest_bucket,
