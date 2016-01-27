@@ -77,6 +77,24 @@ function provision_s3_provision_drupal_config($uri, $data) {
 }
 
 /**
+ * Implements hook_provision_apache_vhost_config().
+ */
+function provision_s3_provision_apache_vhost_config($uri, $data) {
+  if (_provision_s3_enabled()) {
+    return d()->service('s3')->vhost_config($uri, $data, 'apache');
+  }
+}
+
+/**
+ * Implements hook_provision_drupal_config().
+ */
+function provision_s3_provision_nginx_vhost_config($uri, $data) {
+  if (_provision_s3_enabled()) {
+    return d()->service('s3')->vhost_config($uri, $data, 'nginx');
+  }
+}
+
+/**
  * Implements hook_provision_deploy_options_alter().
  */
 function provision_s3_provision_deploy_options_alter(&$deploy_options, $context) {

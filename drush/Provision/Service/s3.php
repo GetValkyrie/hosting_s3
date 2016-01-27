@@ -64,6 +64,47 @@ class Provision_Service_s3 extends Provision_Service {
   }
 
   /**
+   * Wrapper around drush_HOOK_provision_TYPE_vhost_config().
+   */
+  function vhost_config($uri, $data, $type = 'apache') {
+    $bucket = $this->get_bucket_name();
+    $lines = array();
+
+    if ($type == 'apache') {
+      // TODO: run this against the web server/cluster, instead of the Aegir server.
+      $mod_proxy_enabled = strpos(shell_exec('apachectl -t -D DUMP_MODULES'), 'proxy_module') !== FALSE;
+      if ($mod_proxy_enabled) {
+        drush_log('Injecting configuration to proxy S3-hosted aggregated CSS and JS into site vhost.');
+        $lines[] = "<IfModule mod_proxy.c>";
+        $lines[] = "  # Proxy aggregated CSS & JS";
+        $lines[] = "  ProxyRequests Off";
+        $lines[] = "  SSLProxyEngine on";
+        $lines[] = "  <Proxy *>";
+        $lines[] = "    Order deny,allow";
+        $lines[] = "    Allow from all";
+        $lines[] = "  </Proxy>";
+        // TODO: Add root folder here.
+        $lines[] = "  ProxyPass /s3fs-css/ https://$bucket.s3.amazonaws.com/s3fs-public/";
+        $lines[] = "  ProxyPassReverse /s3fs-css/ https://$bucket.s3.amazonaws.com/s3fs-public/";
+        $lines[] = "  ProxyPass /s3fs-js/ https://$bucket.s3.amazonaws.com/s3fs-public/";
+        $lines[] = "  ProxyPassReverse /s3fs-js/ https://$bucket.s3.amazonaws.com/s3fs-public/";
+        $lines[] = "</IfModule>";
+      }
+      else {
+        drush_log("Apache proxy module (mod_proxy) is not enabled. Cannot inject configuration to proxy S3-hosted aggregated CSS and JS into site vhost.", 'warning');
+      }
+    }
+    elseif ($type == 'nginx') {
+      drush_log("Nginx is not currently supported for proxying S3-hosted aggregated CSS/JS. See: https://github.com/GetValkyrie/hosting_s3/issues/11.", 'warning');
+    }
+    else {
+      drush_log("Unsupported server type ($type) for proxying S3-hosted aggregated CSS/JS. See: https://github.com/GetValkyrie/hosting_s3/issues/11.", 'warning');
+    }
+
+    return implode("\n", $lines);
+  }
+
+  /**
    * Wrapper around drush_HOOK_provision_install_validate().
    */
   function install_validate() {
